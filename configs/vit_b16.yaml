@@ -1,0 +1,24 @@
+seed: 42
+model:
+  name: vit_base_patch16_224
+  pretrained: true
+  num_classes: 7
+  layer_decay: 0.75
+data:
+  ham_root: data/HAM10000
+  fitz_root: data/fitzpatrick17k
+  image_size: 224
+  batch_size: 32
+  num_workers: 4
+  oversample: false
+loss:
+  name: focal
+  gamma: 2.0
+train:
+  epochs: 30
+  lr: 3.0e-5
+  weight_decay: 0.05
+  warmup_epochs: 3
+  early_stopping_patience: 5
+  amp: true
+output_dir: results/vit_b16

@@ -1,0 +1,23 @@
+seed: 42
+model:
+  name: resnet50
+  pretrained: true
+  num_classes: 7
+  freeze_backbone_epochs: 2
+data:
+  ham_root: data/HAM10000
+  fitz_root: data/fitzpatrick17k
+  image_size: 224
+  batch_size: 32
+  num_workers: 4
+  oversample: false
+loss:
+  name: focal        # ce | weighted_ce | focal
+  gamma: 2.0
+train:
+  epochs: 30
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  early_stopping_patience: 5
+  amp: true
+output_dir: results/resnet50

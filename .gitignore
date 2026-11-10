@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Data & artefacts (never commit)
+data/*
+!data/README.md
+results/checkpoints/*
+!results/checkpoints/.gitkeep
+*.pt
+*.pth
+*.ckpt
+wandb/
+runs/
+lightning_logs/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
