@@ -11,7 +11,9 @@ def train_transforms(size=224):
         T.RandomHorizontalFlip(),
         T.RandomVerticalFlip(),
         T.RandomRotation(20),
-        T.ColorJitter(0.2, 0.2, 0.1, 0.02),  # TODO(Afzal): check hue jitter does not distort skin tone
+        # hue=0 on purpose: hue shifts change apparent skin tone, which would confound the
+        # per-Fitzpatrick fairness analysis. Brightness/contrast/saturation only.
+        T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.0),
         T.ToTensor(),
         T.Normalize(IMAGENET_MEAN, IMAGENET_STD),
     ])
