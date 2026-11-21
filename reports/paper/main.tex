@@ -1,0 +1,246 @@
+%**************************************************************************
+%*  P01 -- Fair & Explainable Skin-Lesion Classification: CNN vs ViT       *
+%*  ELCVIA camera-ready format (LaTeX2e)                                   *
+%**************************************************************************
+
+\documentclass[twoside,a4paper,11pt]{article}
+\usepackage{times}
+\usepackage{elcvia}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{booktabs}
+
+% INFORMATION TO FILL IN CAMERA READY VERSION
+%------------------------------------------------------------------
+\newcommand{\vol}{0}            % Number of Volume (default 0)
+\newcommand{\num}{0}            % Number (default 0)
+\setcounter{page}{1}            % First page (default 1)
+\newcommand{\begpag}{\thepage}
+\newcommand{\finpag}{10}        % Last Page (update once final)
+\newcommand{\yearp}{2026}       % Year of the issue
+%------------------------------------------------------------------
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+
+\title{Fair \& Explainable Skin-Lesion Classification: CNN vs Vision
+Transformer
+\footnote[0]{Correspondence to: $<$su-24013@sitare.org$>$ \vspace{0.2cm}}
+\footnote[0]{\noindent Recommended for acceptance by $<$name$>$}
+}
+
+\author{Afzal Raza$^*$, Anamika Kumari$^*$, Khushi Narwariya$^*$ and Karanpal$^*$ \\ \\
+\centerline{\small \em $^*$ Team 1, P01 -- HAM10000 / Fitzpatrick17k Fairness Study} \\ \\
+\centerline{\small Received 1 January 2026; revised --; accepted --}
+}
+
+\begin{document}
+
+\maketitle
+
+\pagestyle{myheadings}
+
+\markboth{\centerline{\small \it Raza et al. /
+           Electronic Letters on Computer Vision and Image Analysis
+           \vol(\num):\begpag-\finpag, \yearp}}
+         {\centerline{\small \it Raza et al. /
+           Electronic Letters on Computer Vision and Image Analysis
+           \vol(\num):\begpag-\finpag, \yearp}}
+\hrulefill
+
+\begin{abstract}
+
+We study whether a convolutional network (ResNet-50) or a Vision
+Transformer (ViT-B/16) classifies the seven HAM10000 dermoscopic lesion
+types more fairly across Fitzpatrick skin types (I--VI), and which model
+yields more trustworthy visual explanations. Both architectures are
+fine-tuned on HAM10000 with a lesion-level, leakage-free train/val/test
+split, and evaluated for class-balanced accuracy, per-skin-tone
+performance gaps (light I--III vs.\ dark IV--VI, using Fitzpatrick17k),
+and explanation quality: Grad-CAM for the CNN and attention rollout for
+the ViT, scored with deletion/insertion AUC. \emph{[Results to be
+completed once training and evaluation are run; see
+Section~\ref{sec:results}.]}
+
+\vspace{0.5cm}
+\noindent
+{\em Key Words}: Computer Vision, Image Analysis, Fairness in Machine
+Learning, Skin-Lesion Classification, Convolutional Neural Networks,
+Vision Transformers, Explainability, Grad-CAM, Attention Rollout.
+
+\end{abstract}
+\hrulefill
+
+\section{Introduction}
+\label{sec:intro}
+
+Automated dermoscopic image classification can help triage suspicious
+skin lesions, but prior work has shown that deep models trained
+predominantly on light-skinned patients can under-perform on darker skin
+tones~\cite{Groh:21}. This raises both a scientific question --
+\emph{which architecture generalizes more fairly?} -- and a practical
+one -- \emph{how do we know what the model is actually looking at?}
+
+This paper compares two widely used backbones, a CNN (ResNet-50) and a
+Vision Transformer (ViT-B/16), fine-tuned on the HAM10000
+dataset~\cite{Tschandl:18} for 7-class lesion classification
+(\texttt{akiec}, \texttt{bcc}, \texttt{bkl}, \texttt{df}, \texttt{mel},
+\texttt{nv}, \texttt{vasc}). We evaluate skin-tone fairness using the
+Fitzpatrick17k dataset~\cite{Groh:21}, mapped onto the HAM10000 label
+space, and compare the explanations each model produces -- Grad-CAM for
+the CNN~\cite{Selvaraju:17} and attention rollout for the
+ViT~\cite{Abnar:20,Dosovitskiy:21}.
+
+\textbf{Research question:} Is ViT or CNN fairer across skin tones, and
+which one gives better explanations?
+
+\section{Related Work}
+\label{sec:related}
+
+Esteva et al.~\cite{Esteva:17} first showed dermatologist-level skin
+cancer classification with CNNs. Groh et al.~\cite{Groh:21} introduced
+Fitzpatrick17k and demonstrated accuracy disparities across skin tones
+for clinical-image classifiers. Dosovitskiy et al.~\cite{Dosovitskiy:21}
+introduced the Vision Transformer; Abnar and Zuidema~\cite{Abnar:20}
+proposed attention rollout as a way to visualize what a transformer
+attends to, analogous to Grad-CAM~\cite{Selvaraju:17} for CNNs. To our
+knowledge, no prior work directly compares CNN vs.\ ViT fairness
+\emph{and} explanation quality jointly on this pair of datasets.
+
+\section{Datasets}
+\label{sec:datasets}
+
+\begin{description}
+\item[HAM10000] 10{,}015 dermoscopic images across 7 diagnostic
+categories, used for training, validation and testing. Splits are
+constructed at the \emph{lesion} level (not image level) using a
+stratified group split, so that no \texttt{lesion\_id} appears in more
+than one split -- preventing leakage from images of the same lesion.
+
+\item[Fitzpatrick17k] 16{,}577 clinical images labelled with Fitzpatrick
+skin type (I--VI) and one of 114 clinical conditions. We map the subset
+of conditions that correspond to our 7 HAM10000 classes
+(\texttt{mel}, \texttt{bcc}, \texttt{akiec}, \texttt{bkl}, \texttt{df};
+mappings for \texttt{nv} and \texttt{vasc} are still being finalized)
+and use it purely as a skin-tone-labelled \emph{evaluation} set, since
+its images are clinical rather than dermoscopic -- a domain shift we
+report honestly rather than hide.
+\end{description}
+
+\section{Method}
+\label{sec:method}
+
+\subsection{Models}
+Both backbones are initialized from ImageNet-pretrained weights and
+fine-tuned with a new 7-class head. The CNN is a ResNet-50 (frozen
+backbone for the first two epochs, then unfrozen); the ViT is
+ViT-B/16 via \texttt{timm}, with layer-wise learning-rate decay to
+preserve pretrained low-level features.
+
+\subsection{Class-imbalance handling}
+HAM10000 is heavily imbalanced towards the \texttt{nv} (melanocytic
+nevus) class. We compare plain cross-entropy, class-weighted
+cross-entropy, and focal loss~\cite{Lin:17} ($\gamma=2$), each with and
+without a balanced \texttt{WeightedRandomSampler}.
+
+\subsection{Explainability}
+For the CNN we compute Grad-CAM~\cite{Selvaraju:17} heat-maps from the
+last convolutional block. For the ViT we compute attention
+rollout~\cite{Abnar:20} across all transformer blocks, projecting the
+CLS-token attention back onto the $14\times14$ patch grid and
+upsampling to the input resolution. Both explanation types are
+normalized to $[0,1]$ heat-maps of the same shape for a like-for-like
+comparison.
+
+\subsection{Fairness and explanation-quality metrics}
+We report overall and per-class balanced accuracy, macro-F1 and
+macro-AUROC (Section~\ref{sec:method}), then, for Fitzpatrick17k,
+balanced accuracy per Fitzpatrick type, the gap (max $-$ min) and ratio
+(min~/~max) across types, and the light (I--III) vs.\ dark (IV--VI)
+split, with bootstrap 95\% confidence intervals. Explanation quality is
+scored with deletion and insertion AUC~\cite{Petsiuk:18}, compared
+between Grad-CAM and attention rollout, overall and per skin-tone group.
+
+\section{Experimental Setup}
+\label{sec:setup}
+
+All experiments use $224\times224$ inputs, ImageNet normalization,
+AMP mixed-precision training, early stopping on validation balanced
+accuracy, and a fixed seed (42) for reproducibility. Hyperparameters
+(learning rate, batch size, epochs, schedule) are tuned for both models
+under an equal compute budget; full configs are version-controlled in
+\texttt{configs/resnet50.yaml} and \texttt{configs/vit\_b16.yaml}.
+
+\section{Results}
+\label{sec:results}
+
+\emph{[Placeholder -- to be filled in once \texttt{scripts/train.py}
+and \texttt{scripts/evaluate.py} are implemented and run. Planned
+tables: (1) overall test accuracy / balanced accuracy / macro-F1 /
+macro-AUROC for ResNet-50 vs.\ ViT-B/16; (2) per-Fitzpatrick-type
+balanced accuracy and light-vs-dark gap for both models with bootstrap
+CIs; (3) deletion/insertion AUC for Grad-CAM vs.\ attention rollout,
+overall and per skin-tone group. See \texttt{results/EXPERIMENTS.md}
+for the running experiment log.]}
+
+\section{Discussion}
+\label{sec:discussion}
+
+\emph{[Placeholder -- interpretation of the fairness gap and
+explanation-quality results above, once available, including whether
+the more accurate model is also the fairer and more explainable one, or
+whether these trade off against each other.]}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+\emph{[Placeholder -- summary answer to the research question in
+Section~\ref{sec:intro}, and limitations: domain shift between
+HAM10000 (dermoscopic) and Fitzpatrick17k (clinical), and the small
+number of dark-skin-tone samples available for evaluation.]}
+
+\section*{Acknowledgements}
+
+Team 1: Afzal Raza (data pipeline, splits, Fitzpatrick label mapping,
+EDA), Anamika Kumari (ResNet-50 baseline, focal loss, training loop,
+Grad-CAM), Khushi Narwariya (ViT-B/16 fine-tuning, attention rollout,
+hyperparameter search), Karanpal (fairness and explanation-quality
+evaluation, statistical tests).
+
+\begin{thebibliography}{9}
+
+\bibitem{Esteva:17}
+A. Esteva et al., ``Dermatologist-level classification of skin cancer
+with deep neural networks'', \emph{Nature} 542:115--118, 2017.
+
+\bibitem{Dosovitskiy:21}
+A. Dosovitskiy et al., ``An Image is Worth 16x16 Words: Transformers
+for Image Recognition at Scale'', \emph{ICLR}, 2021.
+
+\bibitem{Groh:21}
+M. Groh et al., ``Evaluating Deep Neural Networks Trained on Clinical
+Images in Dermatology with the Fitzpatrick 17k Dataset'',
+\emph{CVPR Workshops}, 2021.
+
+\bibitem{Tschandl:18}
+P. Tschandl, C. Rosendahl, H. Kittler, ``The HAM10000 dataset'',
+\emph{Scientific Data} 5:180161, 2018.
+
+\bibitem{Selvaraju:17}
+R. R. Selvaraju et al., ``Grad-CAM: Visual Explanations from Deep
+Networks via Gradient-based Localization'', \emph{ICCV}, 2017.
+
+\bibitem{Abnar:20}
+S. Abnar, W. Zuidema, ``Quantifying Attention Flow in Transformers'',
+\emph{ACL}, 2020.
+
+\bibitem{Lin:17}
+T.-Y. Lin et al., ``Focal Loss for Dense Object Detection'',
+\emph{ICCV}, 2017.
+
+\bibitem{Petsiuk:18}
+V. Petsiuk, A. Das, K. Saenko, ``RISE: Randomized Input Sampling for
+Explanation of Black-box Models'', \emph{BMVC}, 2018.
+
+\end{thebibliography}
+
+\end{document}
