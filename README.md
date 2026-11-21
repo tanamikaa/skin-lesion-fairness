@@ -65,11 +65,11 @@ python scripts/train.py --config configs/resnet50.yaml
 python scripts/train.py --config configs/vit_b16.yaml --set loss.name=weighted_ce data.oversample=true
 
 # evaluate: predictions CSVs + metrics.json (overall, per skin type, gaps, bootstrap CIs)
-python scripts/evaluate.py --config configs/resnet50.yaml --checkpoint results/checkpoints/resnet50_best.pt
+python scripts/evaluate.py --config configs/resnet50.yaml --checkpoint results/checkpoints/resnet50_focal_s42_best.pt
 
 # explanations + deletion/insertion quality, then CNN-vs-ViT fairness comparison
-python scripts/explain.py  --config configs/resnet50.yaml --checkpoint results/checkpoints/resnet50_best.pt --split fitz
-python scripts/compare_models.py --a results/resnet50/predictions_fitz.csv --b results/vit_b16/predictions_fitz.csv --name-a ResNet-50 --name-b ViT-B/16
+python scripts/explain.py  --config configs/resnet50.yaml --checkpoint results/checkpoints/resnet50_focal_s42_best.pt --split fitz
+python scripts/compare_models.py --a results/resnet50/resnet50_focal_s42/predictions_fitz.csv --b results/vit_b16/vit_b16_focal_s42/predictions_fitz.csv --name-a ResNet-50 --name-b ViT-B/16
 
 # equal-budget hyper-parameter search for both models
 python scripts/hparam_search.py --trials 8 --epochs 10

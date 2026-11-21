@@ -10,8 +10,9 @@ Owners: Anamika Kumari (loop), Khushi Narwariya (ViT schedule)
 * ResNet: backbone frozen for the first `model.freeze_backbone_epochs` epochs.
 * Optional mixup (`train.mixup_alpha` > 0), works with every loss.
 
-Config keys: see configs/*.yaml. Extra optional keys: checkpoint_dir (default results/checkpoints),
-run_name (default basename of output_dir), device, train.grad_clip (default 1.0),
+Config keys: see configs/*.yaml. Each run writes to <output_dir>/<run_name>/ and
+<checkpoint_dir>/<run_name>_best.pt, with run_name = <base>_<loss>[_os]_s<seed> unless set.
+Extra optional keys: checkpoint_dir (default results/checkpoints), run_name, device, train.grad_clip (default 1.0),
 train.mixup_alpha, train.progress (default true).
 """
 import json
@@ -34,6 +35,7 @@ from skinfair.losses import build_loss
 from skinfair.models import build_model
 from skinfair.models.resnet import set_backbone_trainable
 from skinfair.models.vit import layer_decay_param_groups
+from skinfair.utils import run_dir, run_name
 
 log = logging.getLogger(__name__)
 
@@ -96,19 +98,25 @@ def train(cfg, loaders=None):
     seed_everything(cfg.get("seed", 42))
     device = torch.device(cfg.get("device") or ("cuda" if torch.cuda.is_available() else "cpu"))
     t = cfg["train"]
-    out_dir = Path(cfg["output_dir"])
+    name = run_name(cfg)
+    out_dir = run_dir(cfg)  # <output_dir>/<run_name>: every run gets its own folder
     out_dir.mkdir(parents=True, exist_ok=True)
-    run_name = cfg.get("run_name") or out_dir.name
     ckpt_dir = Path(cfg.get("checkpoint_dir", "results/checkpoints"))
     ckpt_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_path = ckpt_dir / f"{run_name}_best.pt"
+    ckpt_path = ckpt_dir / f"{name}_best.pt"
 
     loaders = loaders or get_dataloaders(cfg)
     train_loader, val_loader = loaders["train"], loaders["val"]
     counts = np.bincount(train_loader.dataset.labels, minlength=NUM_CLASSES)
 
     model = build_model(cfg).to(device)
-    criterion = build_loss(cfg, class_counts=counts).to(device)
+    # Oversampling already balances the classes the model sees; adding class weights on top
+    # would double-correct (and hurt the majority classes), so weights are switched off then.
+    oversampled = bool(cfg.get("data", {}).get("oversample", False))
+    if oversampled and cfg["loss"]["name"] in ("weighted_ce", "focal"):
+        log.warning("oversample=true: class weights disabled for loss '%s' (avoid double correction)",
+                    cfg["loss"]["name"])
+    criterion = build_loss(cfg, class_counts=None if oversampled else counts).to(device)
     optimizer = build_optimizer(model, cfg)
     scheduler = build_scheduler(optimizer, t["epochs"], len(train_loader), t.get("warmup_epochs", 0))
     use_amp = bool(t.get("amp", False)) and device.type == "cuda"
@@ -155,7 +163,8 @@ def train(cfg, loaders=None):
 
         if val_bal > best:
             best, best_epoch, bad = val_bal, epoch + 1, 0
-            torch.save({"model": model.state_dict(), "cfg": cfg, "epoch": epoch + 1, "val_bal_acc": val_bal},
+            torch.save({"model": model.state_dict(), "cfg": cfg, "run_name": name, "epoch": epoch + 1,
+                        "val_bal_acc": val_bal},
                        ckpt_path)
         else:
             bad += 1
@@ -163,7 +172,7 @@ def train(cfg, loaders=None):
                 log.info("early stopping at epoch %d (best %d)", epoch + 1, best_epoch)
                 break
 
-    summary = {"run": run_name, "best_val_bal_acc": best, "best_epoch": best_epoch,
+    summary = {"run": name, "best_val_bal_acc": best, "best_epoch": best_epoch,
                "epochs_run": len(history), "checkpoint": str(ckpt_path), "log_csv": str(out_dir / "log.csv")}
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2))
     return summary
