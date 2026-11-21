@@ -18,35 +18,35 @@ Each member plans their own work. The intro, conclusion and slides are written t
 
 ## 1. Afzal Raza — Data pipeline
 - [ ] Download HAM10000 + Fitzpatrick17k, document exact steps in `data/README.md`
-- [ ] `datasets.py`: PyTorch `Dataset` classes for both datasets (image, label, `fitzpatrick` / `None`)
-- [ ] `splits.py`: **lesion-level** stratified train/val/test split for HAM10000 (same `lesion_id` must never appear in two splits — avoids leakage)
-- [ ] Map Fitzpatrick17k labels → the 7 HAM classes (`mel, nv, bcc, akiec, bkl, df, vasc`); drop / document unmapped ones
-- [ ] `transforms.py`: train augmentations + eval transforms (224×224, ImageNet normalisation)
-- [ ] `sampling.py`: `WeightedRandomSampler` for oversampling minority classes
-- [ ] EDA notebook: class distribution, Fitzpatrick distribution, sample grids
+- [x] `datasets.py`: PyTorch `Dataset` classes for both datasets (image, label, `fitzpatrick` / `None`)
+- [x] `splits.py`: **lesion-level** stratified train/val/test split for HAM10000 (same `lesion_id` must never appear in two splits — avoids leakage)
+- [x] Map Fitzpatrick17k labels → the 7 HAM classes (`mel, nv, bcc, akiec, bkl, df, vasc`); drop / document unmapped ones
+- [x] `transforms.py`: train augmentations + eval transforms (224×224, ImageNet normalisation)
+- [x] `sampling.py`: `WeightedRandomSampler` for oversampling minority classes
+- [x] EDA notebook: class distribution, Fitzpatrick distribution, sample grids
 - **Deliverable:** `get_dataloaders(config)` that the training code calls
 
 ## 2. Anamika Kumari — CNN baseline + Grad-CAM
-- [ ] `models/resnet.py`: ImageNet-pretrained ResNet-50, new 7-class head, freeze/unfreeze option
-- [ ] `losses.py`: weighted cross-entropy + focal loss (γ, α configurable)
-- [ ] `train.py`: shared training loop (AMP, early stopping, checkpointing, logging) — used by both models
+- [x] `models/resnet.py`: ImageNet-pretrained ResNet-50, new 7-class head, freeze/unfreeze option
+- [x] `losses.py`: weighted cross-entropy + focal loss (γ, α configurable)
+- [x] `train.py`: shared training loop (AMP, early stopping, checkpointing, logging) — used by both models
 - [ ] Experiments: CE vs weighted CE vs focal loss; with/without oversampling
-- [ ] `explain/gradcam.py`: Grad-CAM on the last conv block
+- [x] `explain/gradcam.py`: Grad-CAM on the last conv block
 - **Deliverable:** best ResNet-50 checkpoint + Grad-CAM maps for the test set
 
 ## 3. Khushi Narwariya — Vision Transformer + attention maps
-- [ ] `models/vit.py`: ViT-B/16 via `timm`, 7-class head, layer-wise LR decay
-- [ ] Fine-tuning recipe (warm-up, cosine LR, stronger augmentation / mixup if helpful)
-- [ ] Same loss/sampling variants as the CNN so the comparison is fair
-- [ ] Hyper-parameter search (LR, batch size, epochs) for **both** models with equal budget
-- [ ] `explain/attention.py`: attention rollout (+ optionally Grad-CAM for ViT for a like-for-like comparison)
+- [x] `models/vit.py`: ViT-B/16 via `timm`, 7-class head, layer-wise LR decay
+- [x] Fine-tuning recipe (warm-up, cosine LR, stronger augmentation / mixup if helpful)
+- [x] Same loss/sampling variants as the CNN so the comparison is fair (`--set loss.name=... data.oversample=...`)
+- [~] Hyper-parameter search for **both** models with equal budget � code ready (`scripts/hparam_search.py`), needs a real run
+- [x] `explain/attention.py`: attention rollout (+ optionally Grad-CAM for ViT for a like-for-like comparison)
 - **Deliverable:** best ViT checkpoint + attention maps for the test set
 
 ## 4. Karanpal — Fairness & explanation-quality evaluation
-- [ ] `evaluation/metrics.py`: accuracy, balanced accuracy, macro-F1, per-class recall, AUROC, confusion matrix
-- [ ] `evaluation/fairness.py`: metrics **per Fitzpatrick type (I–VI)**, gap (max − min), ratio (min / max), light (I–III) vs dark (IV–VI)
-- [ ] Bootstrap 95% confidence intervals + significance test for CNN vs ViT gap
-- [ ] `explain/quality.py`: deletion / insertion AUC, and (if masks available) pointing-game / IoU with lesion area
+- [x] `evaluation/metrics.py`: accuracy, balanced accuracy, macro-F1, per-class recall, AUROC, confusion matrix
+- [x] `evaluation/fairness.py`: metrics **per Fitzpatrick type (I–VI)**, gap (max − min), ratio (min / max), light (I–III) vs dark (IV–VI)
+- [x] Bootstrap 95% confidence intervals + significance test for CNN vs ViT gap
+- [x] `explain/quality.py`: deletion / insertion AUC, and (if masks available) pointing-game / IoU with lesion area
 - [ ] Results tables + plots in `reports/figures/`
 - **Deliverable:** `scripts/evaluate.py` that outputs one JSON with all metrics for a checkpoint
 
@@ -57,3 +57,16 @@ Each member plans their own work. The intro, conclusion and slides are written t
 - Model: `build_model(cfg) -> nn.Module` returning logits `[B, 7]`
 - Predictions file (written by `evaluate.py`): CSV with `image_id, label, pred, prob_0..prob_6, fitzpatrick`
 - Explanation: `explain(model, images) -> Tensor[B, 224, 224]` heat-maps in `[0, 1]`
+
+
+---
+
+## Status (code vs. things that need real data / GPU)
+`[x]` = implemented and unit-tested on synthetic data. Still to do **by running on the real datasets**:
+- Afzal: download HAM10000 + Fitzpatrick17k (`scripts/download_fitzpatrick.py`), then verify the label mapping
+  (`mapping_report`, prints keys missing from the CSV) and run `notebooks/01_eda.ipynb`
+- Anamika: CE vs weighted CE vs focal, � oversampling experiments; best ResNet-50 checkpoint; Grad-CAM maps (`scripts/explain.py`)
+- Khushi: ViT run, `scripts/hparam_search.py` for both models, attention maps
+- Karanpal: `scripts/evaluate.py` per checkpoint, `scripts/compare_models.py`, explanation-quality tables in `reports/figures/`
+- Everyone: log runs in `results/EXPERIMENTS.md`, fill `reports/REPORT.md`
+- Not implemented: lesion segmentation masks for pointing-game/IoU are supported by `explain/quality.py` but the masks (separate HAM10000 download) are not wired into `scripts/explain.py`
