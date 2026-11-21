@@ -11,6 +11,8 @@ TBD
 - **HAM10000**: 7 dermoscopic classes, strongly imbalanced (nv dominates). Split **at lesion level**
   (`StratifiedGroupKFold`, grouped by `lesion_id`, stratified by `dx`, ~70/15/15) so images of one lesion never
   appear in two splits; `assert_no_leakage` enforces it.
+  10,015 images from 7,470 lesions (1,956 lesions have several images). Class counts: nv 6,705, mel 1,113, bkl 1,099, bcc 514,
+  akiec 327, vasc 142, df 115 (imbalance ratio nv/df = 58). Local split: train 7,153 / val 1,431 / test 1,431 (`reports/figures/eda_ham_classes.png`). The Colab runs evaluated on 1,441 test images: the library version of `StratifiedGroupKFold` differed, so the split is not identical across environments (leakage-free in both; see Limitations).
 - **Fitzpatrick17k**: clinical photos with Fitzpatrick skin type (I-VI). Only conditions mappable to the
   7 HAM classes are kept (`fitzpatrick_mapping.py`). Deliberately unmapped: invasive squamous cell carcinoma
   (not HAM `akiec`), port-wine stain (not `vasc`). Mapped images: 1,916; per class: akiec 175, bcc 596, bkl 69, df 79, mel 573, nv 236, vasc 188. Per skin type: I 450, II 672, III 380, IV 221, V 103, VI 34, unknown 56.
@@ -85,7 +87,7 @@ What the numbers support:
 - Both models score lower on dark skin. The ResNet gap (0.077) has a CI above zero; the ViT gap (0.044) has a CI that includes zero. The direct comparison is **not significant** (p = 0.36), so we cannot claim that ViT is fairer; ViT is more accurate overall on Fitzpatrick17k.
 - Per-class recall by light vs dark (`per_class_recall_light_vs_dark` in `metrics.json`) shows no consistent pattern; `df` has only 8 dark-skin images and recall 0 for both models.
 
-Limitations: one seed and one training run per model; default hyper-parameters (no search); only the focal-loss setting; HAM10000 itself has no skin-type labels, so fairness is measured only on Fitzpatrick17k; the label mapping to 7 classes drops most conditions (1,916 of 16,577 images) and leaves squamous cell carcinoma and port-wine stain unmapped on purpose; skin types V and VI have only 103 and 34 images, and `df`/`bkl` are small. Explanation-quality numbers use 256 images (6 of type VI), and deletion/insertion AUC depends on each model's probability scale, so cross-model comparison is only indicative. Pointing-game / IoU were not computed (no lesion masks).
+Limitations: the HAM10000 split depends on the scikit-learn version (Colab test n = 1,441 vs 1,431 locally), so numbers should be reproduced in a single environment; one seed and one training run per model; default hyper-parameters (no search); only the focal-loss setting; HAM10000 itself has no skin-type labels, so fairness is measured only on Fitzpatrick17k; the label mapping to 7 classes drops most conditions (1,916 of 16,577 images) and leaves squamous cell carcinoma and port-wine stain unmapped on purpose; skin types V and VI have only 103 and 34 images, and `df`/`bkl` are small. Explanation-quality numbers use 256 images (6 of type VI), and deletion/insertion AUC depends on each model's probability scale, so cross-model comparison is only indicative. Pointing-game / IoU were not computed (no lesion masks).
 
 ## 6. Conclusion  *(written together)*
 TBD
