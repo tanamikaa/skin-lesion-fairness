@@ -11,7 +11,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from .metrics import classification_metrics, fast_balanced_accuracy
+from skinfair import CLASSES
+
+from .metrics import classification_metrics, fast_balanced_accuracy, per_class_recall
 
 LIGHT_FST = (1, 2, 3)
 DARK_FST = (4, 5, 6)
@@ -38,6 +40,24 @@ def light_vs_dark(df: pd.DataFrame, metric="balanced_accuracy"):
     d = df[df["fitzpatrick"] >= 1].copy()
     d["tone"] = np.where(d["fitzpatrick"] <= 3, "light", "dark")
     return per_group_metrics(d, group_col="tone", metric=metric)
+
+
+def per_class_recall_light_vs_dark(df: pd.DataFrame) -> pd.DataFrame:
+    """Per-class recall for light (I-III) vs dark (IV-VI) skin.
+
+    Returns one row per HAM class: class, n_light, n_dark (class support in each group),
+    recall_light, recall_dark, gap (light - dark; positive = worse on dark skin).
+    Recall is NaN where a group has no samples of that class, so tiny/absent cells are not
+    mistaken for 0% recall.
+    """
+    light, dark = _split_light_dark(df)
+    rl = per_class_recall(light["label"], light["pred"])
+    rd_ = per_class_recall(dark["label"], dark["pred"])
+    nl = np.bincount(light["label"], minlength=len(CLASSES))
+    nd = np.bincount(dark["label"], minlength=len(CLASSES))
+    out = pd.DataFrame({"class": CLASSES, "n_light": nl, "n_dark": nd, "recall_light": rl, "recall_dark": rd_})
+    out["gap"] = out["recall_light"] - out["recall_dark"]
+    return out
 
 
 def _split_light_dark(df):

@@ -57,7 +57,7 @@ def main():
             cfg = apply_overrides(base, [
                 f"train.lr={lr}", f"data.batch_size={tr['batch_size']}", f"train.epochs={args.epochs}",
                 f"train.early_stopping_patience={args.epochs}",  # fixed budget, no early stop
-                f"output_dir=results/hparam/{run}", f"run_name={run}",
+                "output_dir=results/hparam", f"run_name={run}",
                 "checkpoint_dir=results/hparam/checkpoints", "train.progress=false",
             ])
             summary = train(cfg)

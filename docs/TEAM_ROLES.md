@@ -38,7 +38,7 @@ Each member plans their own work. The intro, conclusion and slides are written t
 - [x] `models/vit.py`: ViT-B/16 via `timm`, 7-class head, layer-wise LR decay
 - [x] Fine-tuning recipe (warm-up, cosine LR, stronger augmentation / mixup if helpful)
 - [x] Same loss/sampling variants as the CNN so the comparison is fair (`--set loss.name=... data.oversample=...`)
-- [~] Hyper-parameter search for **both** models with equal budget — code ready (`scripts/hparam_search.py`), needs a real run
+- [~] Hyper-parameter search for **both** models with equal budget â€” code ready (`scripts/hparam_search.py`), needs a real run
 - [x] `explain/attention.py`: attention rollout (+ optionally Grad-CAM for ViT for a like-for-like comparison)
 - **Deliverable:** best ViT checkpoint + attention maps for the test set
 
@@ -63,9 +63,8 @@ Each member plans their own work. The intro, conclusion and slides are written t
 
 ## Status (code vs. things that need real data / GPU)
 `[x]` = implemented and unit-tested on synthetic data. Still to do **by running on the real datasets**:
-- Afzal: download HAM10000 + Fitzpatrick17k (`scripts/download_fitzpatrick.py`), then verify the label mapping
-  (`mapping_report`, prints keys missing from the CSV) and run `notebooks/01_eda.ipynb`
-- Anamika: CE vs weighted CE vs focal, ± oversampling experiments; best ResNet-50 checkpoint; Grad-CAM maps (`scripts/explain.py`)
+- Afzal: verify the label mapping (done: 1,916 Fitzpatrick17k rows map) and run `notebooks/01_eda.ipynb`
+- Anamika: CE vs weighted CE vs focal, Â± oversampling experiments; best ResNet-50 checkpoint; Grad-CAM maps (`scripts/explain.py`)
 - Khushi: ViT run, `scripts/hparam_search.py` for both models, attention maps
 - Karanpal: `scripts/evaluate.py` per checkpoint, `scripts/compare_models.py`, explanation-quality tables in `reports/figures/`
 - Everyone: log runs in `results/EXPERIMENTS.md`, fill `reports/REPORT.md`

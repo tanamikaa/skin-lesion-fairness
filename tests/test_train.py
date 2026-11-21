@@ -34,7 +34,7 @@ def test_resnet_training_smoke(tmp_path):
     assert list(log["epoch"]) == [1, 2]
     assert log[["train_loss", "val_loss"]].notna().all().all()
     assert 0 <= summary["best_val_bal_acc"] <= 1
-    assert json.load(open(tmp_path / "out" / "resnet50" / "summary.json"))["best_epoch"] >= 1
+    assert json.load(open(tmp_path / "out" / "resnet50" / "resnet50_focal_os_s0" / "summary.json"))["best_epoch"] >= 1
     m = build_model(cfg)
     ckpt = load_checkpoint(m, summary["checkpoint"])  # loadable
     assert ckpt["epoch"] == summary["best_epoch"]
@@ -46,7 +46,7 @@ def test_training_reduces_loss_on_tiny_problem(tmp_path):
     cfg["loss"]["name"] = "ce"
     cfg["train"]["mixup_alpha"] = 0.0
     train(cfg)
-    log = pd.read_csv(tmp_path / "out" / "resnet50" / "log.csv")
+    log = pd.read_csv(tmp_path / "out" / "resnet50" / "resnet50_ce_os_s0" / "log.csv")
     assert log["train_loss"].iloc[-1] < log["train_loss"].iloc[0]
 
 
@@ -59,3 +59,33 @@ def test_early_stopping(tmp_path, monkeypatch):
     cfg["train"]["early_stopping_patience"] = 2
     summary = train(cfg)
     assert summary["epochs_run"] == 3 and summary["best_epoch"] == 1
+
+
+def test_each_run_gets_its_own_folder_and_checkpoint(tmp_path):
+    from skinfair.utils import run_dir, run_name
+
+    cfg = make_cfg(tmp_path, "resnet50", size=32, epochs=1)
+    a = train(apply_overrides(cfg, ["loss.name=ce", "data.oversample=false"]))
+    b = train(apply_overrides(cfg, ["loss.name=focal", "data.oversample=true"]))
+    assert a["checkpoint"] != b["checkpoint"] and a["log_csv"] != b["log_csv"]
+    assert run_name(apply_overrides(cfg, ["loss.name=ce", "data.oversample=false"])) == "resnet50_ce_s0"
+    assert (run_dir(cfg).parent / "resnet50_ce_s0" / "summary.json").exists()
+    assert (run_dir(cfg).parent / "resnet50_focal_os_s0" / "summary.json").exists()
+
+
+def test_class_weights_disabled_when_oversampling(tmp_path, monkeypatch):
+    import skinfair.train as T
+
+    seen = {}
+    real = T.build_loss
+
+    def spy(cfg, class_counts=None):
+        seen["counts"] = class_counts
+        return real(cfg, class_counts)
+
+    monkeypatch.setattr(T, "build_loss", spy)
+    cfg = make_cfg(tmp_path, "resnet50", size=32, epochs=1)
+    train(apply_overrides(cfg, ["data.oversample=true", "loss.name=weighted_ce"]))
+    assert seen["counts"] is None
+    train(apply_overrides(cfg, ["data.oversample=false", "loss.name=weighted_ce"]))
+    assert seen["counts"] is not None

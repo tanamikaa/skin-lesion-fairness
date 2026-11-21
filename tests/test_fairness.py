@@ -10,6 +10,7 @@ from skinfair.evaluation.fairness import (
     fairness_gap,
     light_vs_dark,
     mcnemar_test,
+    per_class_recall_light_vs_dark,
     per_group_metrics,
 )
 from skinfair.evaluation.metrics import classification_metrics, fast_balanced_accuracy
@@ -107,3 +108,25 @@ def test_predict_table_matches_interface(tmp_path):
     assert list(df.columns) == ["image_id", "label", "pred", *PROB_COLS, "fitzpatrick"]
     assert np.allclose(df[PROB_COLS].sum(1), 1, atol=1e-5)
     assert (df["pred"] == df[PROB_COLS].to_numpy().argmax(1)).all()
+
+
+def test_absent_class_recall_is_nan_not_zero():
+    m = classification_metrics(np.array([0, 0, 1]), np.array([0, 1, 1]))
+    r = m["per_class_recall"]
+    assert r["akiec"] == 0.5 and r["bcc"] == 1.0
+    assert all(np.isnan(r[c]) for c in ["bkl", "df", "mel", "nv", "vasc"])
+    assert m["per_class_support"]["akiec"] == 2 and m["per_class_support"]["nv"] == 0
+
+
+def test_per_class_recall_light_vs_dark():
+    # light: class 0 always right; dark: class 0 always wrong; class 1 only in light
+    df = pd.DataFrame({
+        "label": [0, 0, 1, 0, 0],
+        "pred": [0, 0, 1, 3, 3],
+        "fitzpatrick": [1, 2, 3, 5, 6],
+    })
+    t = per_class_recall_light_vs_dark(df).set_index("class")
+    assert t.loc["akiec", "recall_light"] == 1.0 and t.loc["akiec", "recall_dark"] == 0.0
+    assert t.loc["akiec", "gap"] == 1.0 and t.loc["akiec", "n_dark"] == 2
+    assert t.loc["bcc", "recall_light"] == 1.0 and np.isnan(t.loc["bcc", "recall_dark"])  # absent in dark
+    assert np.isnan(t.loc["mel", "recall_light"]) and np.isnan(t.loc["mel", "gap"])

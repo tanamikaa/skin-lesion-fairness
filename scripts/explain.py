@@ -6,7 +6,7 @@ Usage:
 
 Owners: Anamika (Grad-CAM), Khushi (attention rollout), Karanpal (quality metrics).
 
-Writes to <output_dir>/explain/:
+Writes to <output_dir>/<run_name>/explain/<split>/:
   maps_<method>.npz        image_id + heat-maps (float16, [N, 224, 224]) for the first --max-images images
   quality_<method>.csv     per-image deletion / insertion AUC (+ fitzpatrick)
   overlay_<method>.png     grid of overlays (also copied to reports/figures/)
@@ -75,14 +75,15 @@ def main():
     device = torch.device(cfg.get("device") or ("cuda" if torch.cuda.is_available() else "cpu"))
     cfg["model"]["pretrained"] = False
     model = build_model(cfg).to(device)
-    load_checkpoint(model, args.checkpoint, device)
+    ckpt = load_checkpoint(model, args.checkpoint, device)
+    run = ckpt.get("run_name") or Path(args.checkpoint).stem.removesuffix("_best")
     model.eval()
 
     is_vit = cfg["model"]["name"].startswith("vit")
     methods = {"attention_rollout": attention_rollout, "gradcam_vit": gradcam_vit} if is_vit else {"gradcam": gradcam}
 
     loader = get_dataloaders(cfg)[args.split]
-    out_dir = Path(cfg["output_dir"]) / "explain" / args.split
+    out_dir = Path(cfg["output_dir"]) / run / "explain" / args.split
     out_dir.mkdir(parents=True, exist_ok=True)
 
     store = {m: {"maps": [], "rows": []} for m in methods}
@@ -114,7 +115,7 @@ def main():
         q.to_csv(out_dir / f"quality_{name}.csv", index=False)
         for dest in (out_dir, Path("reports/figures")):
             save_overlays(first_images, maps[: len(first_images)].astype(np.float32),
-                          dest / f"overlay_{Path(cfg['output_dir']).name}_{name}_{args.split}.png",
+                          dest / f"overlay_{run}_{name}_{args.split}.png",
                           title=f"{cfg['model']['name']} - {name}")
         print(f"{name}: deletion AUC {q['deletion_auc'].mean():.3f} (lower better), "
               f"insertion AUC {q['insertion_auc'].mean():.3f} (higher better), n={len(q)}")

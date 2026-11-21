@@ -1,6 +1,6 @@
 """Usage: python scripts/evaluate.py --config ... --checkpoint ...    Owner: Karanpal
 
-Loads the model, predicts on HAM10000 test + Fitzpatrick17k, and writes to cfg["output_dir"]:
+Loads the model, predicts on HAM10000 test + Fitzpatrick17k, and writes to <output_dir>/<run_name>/:
   predictions_ham_test.csv, predictions_fitz.csv   (image_id, label, pred, prob_0..prob_6, fitzpatrick)
   metrics.json  (overall + per Fitzpatrick type + gap/ratio + light-vs-dark + bootstrap CIs)
 
@@ -22,6 +22,7 @@ from skinfair.evaluation.fairness import (
     bootstrap_group_ci,
     fairness_gap,
     light_vs_dark,
+    per_class_recall_light_vs_dark,
     per_group_metrics,
 )
 from skinfair.evaluation.metrics import classification_metrics
@@ -56,6 +57,10 @@ def fairness_report(df, n_boot):
         "light_vs_dark": light_vs_dark(df).to_dict("records"),
     }
     try:
+        report["per_class_recall_light_vs_dark"] = per_class_recall_light_vs_dark(df).to_dict("records")
+    except ValueError as e:
+        report["per_class_recall_light_vs_dark"] = {"note": str(e)}
+    try:
         report["light_minus_dark_gap_ci"] = bootstrap_gap_ci(df, n_boot=n_boot)
     except ValueError as e:
         report["light_minus_dark_gap_ci"] = {"note": str(e)}
@@ -74,12 +79,13 @@ def main():
     with open(args.config) as f:
         cfg = apply_overrides(yaml.safe_load(f), args.set)
     device = torch.device(cfg.get("device") or ("cuda" if torch.cuda.is_available() else "cpu"))
-    out_dir = Path(cfg["output_dir"])
-    out_dir.mkdir(parents=True, exist_ok=True)
 
     cfg["model"]["pretrained"] = False  # weights come from the checkpoint
     model = build_model(cfg).to(device)
-    load_checkpoint(model, args.checkpoint, device)
+    ckpt = load_checkpoint(model, args.checkpoint, device)
+    name = ckpt.get("run_name") or Path(args.checkpoint).stem.removesuffix("_best")
+    out_dir = Path(cfg["output_dir"]) / name  # same folder the training run used
+    out_dir.mkdir(parents=True, exist_ok=True)
     loaders = get_dataloaders(cfg)
 
     ham = predict(model, loaders["test"], device)
