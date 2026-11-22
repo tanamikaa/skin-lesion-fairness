@@ -1,41 +1,71 @@
-"""Lesion-level stratified splits for HAM10000 (prevents leakage). Owner: Afzal Raza."""
+# This file splits the HAM10000 table into train, validation and test parts.
+# The split is done per lesion, not per image, because one lesion has several photos.
+# If photos of one lesion were in different splits, the test score would be too good
+# (this is called data leakage).
+
+# pandas gives us tables (DataFrames)
 import pandas as pd
+# StratifiedGroupKFold keeps groups together and keeps class shares similar in each fold
 from sklearn.model_selection import StratifiedGroupKFold
 
 
+# Splits the metadata into train, val and test so a lesion never appears in two parts.
+# Args:
+#   meta: the metadata table (needs columns "dx" and "lesion_id").
+#   val_frac: wanted share of validation data (0.15 = 15%).
+#   test_frac: wanted share of test data.
+#   seed: number that makes the split repeatable.
+# Returns: three tables (train, val, test), roughly 70% / 15% / 15%.
+# Why: to test the model fairly on lesions it has never seen.
 def lesion_level_split(meta: pd.DataFrame, val_frac=0.15, test_frac=0.15, seed=42):
-    """Split so no `lesion_id` appears in more than one split, stratified by `dx`.
-
-    Fractions are approximate (StratifiedGroupKFold works in whole folds of 1/round(1/frac)).
-    Returns (train_df, val_df, test_df).
-
-    Why: HAM10000 has several photos of the same lesion. If they landed in different splits,
-    the model could "recognise" a lesion it saw in training and test scores would be too high.
-    With the defaults: test = 1 of 7 folds (~14.3%), val = 1 of 6 folds of the rest (~14.3%).
+    """Splits the metadata into train, validation and test tables.
+    Step 1: take out about test_frac of the data as test, keeping each lesion together.
+    Step 2: split the rest into train and validation the same way.
+    The split also keeps class shares similar and is repeatable with the seed.
+    Input: meta table, val_frac, test_frac and seed.
+    Output: three tables (train, val, test). It stops leakage of one lesion across splits.
     """
-    # round(1 / 0.15) = 7 folds; groups=lesion_id keeps all images of a lesion together
+    # make a splitter with about 1/test_frac folds, so one fold is about the test share
     sgkf = StratifiedGroupKFold(n_splits=round(1 / test_frac), shuffle=True, random_state=seed)
-    # next(...) takes only the first fold: its held-out part becomes the test set
+    # take only the first split: the held-out fold becomes the test set
     trainval_idx, test_idx = next(sgkf.split(meta, meta["dx"], groups=meta["lesion_id"]))
+    # use the row positions to get the two tables
     trainval, test = meta.iloc[trainval_idx], meta.iloc[test_idx]
 
-    # round(0.85 / 0.15) = 6 folds on the remaining data; first fold's held-out part = val
+    # make a second splitter on the remaining data; the number of folds is chosen so
+    # one fold is about val_frac of the original data
     sgkf = StratifiedGroupKFold(n_splits=round((1 - test_frac) / val_frac), shuffle=True, random_state=seed)
+    # split trainval into train and validation (again keeping lesions together)
     train_idx, val_idx = next(sgkf.split(trainval, trainval["dx"], groups=trainval["lesion_id"]))
-    # positions from split() are relative to `trainval`, hence trainval.iloc
+    # positions refer to trainval, so we index trainval here, not meta
     return trainval.iloc[train_idx], trainval.iloc[val_idx], test
 
 
+# Checks that no lesion or image is shared between two splits.
+# Args: train, val, test: the three tables from lesion_level_split.
+# Returns: nothing if all is fine; raises AssertionError if something is shared.
+# Why: a safety check that proves there is no data leakage.
 def assert_no_leakage(train: pd.DataFrame, val: pd.DataFrame, test: pd.DataFrame):
-    """Raise if any lesion_id or image_id is shared between two splits.
-
-    Inputs: the three split DataFrames. Returns nothing if all is fine.
+    """Checks that no lesion or image is shared between two splits.
+    Step 1: put the three tables in a dict with names.
+    Step 2: compare every pair of splits once.
+    Step 3: for both lesion_id and image_id, find ids that appear in both.
+    Input: train, val and test tables.
+    Output: nothing if fine, but it raises an error if something is shared. It proves no data leakage.
     """
+    # put the splits in a dict so each has a name for error messages
     splits = {"train": train, "val": val, "test": test}
+    # list of the split names
     names = list(splits)
+    # go over each split a
     for i, a in enumerate(names):
-        for b in names[i + 1:]:  # each pair once: train-val, train-test, val-test
+        # compare with each later split b, so every pair is checked once
+        for b in names[i + 1:]:
+            # check both id columns
             for col in ("lesion_id", "image_id"):
-                shared = set(splits[a][col]) & set(splits[b][col])  # set intersection
+                # ids that appear in both splits
+                shared = set(splits[a][col]) & set(splits[b][col])
+                # any shared id means leakage
                 if shared:
+                    # stop with a clear message
                     raise AssertionError(f"{len(shared)} {col}(s) shared between {a} and {b}")
