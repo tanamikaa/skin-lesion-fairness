@@ -1,0 +1,8 @@
+{
+  "run": "resnet50_focal_s42",
+  "best_val_bal_acc": 0.7886962842645223,
+  "best_epoch": 8,
+  "epochs_run": 13,
+  "checkpoint": "/content/drive/MyDrive/skinfair_data/ckpt/resnet50_focal_s42_best.pt",
+  "log_csv": "/content/drive/MyDrive/skinfair_data/results/resnet50/resnet50_focal_s42/log.csv"
+}

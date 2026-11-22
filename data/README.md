@@ -19,4 +19,9 @@ Download `HAM10000_images_part_1.zip`, `HAM10000_images_part_2.zip`, `HAM10000_m
 
 ## Fitzpatrick17k
 https://github.com/mattgroh/fitzpatrick17k — CSV has image URLs + `fitzpatrick_scale` (1–6, −1 = unknown).
+Download the images for the mappable conditions with:
+```bash
+python scripts/download_fitzpatrick.py --root data/fitzpatrick17k
+```
+(prints how many rows map to each HAM class and warns about mapping keys not found in the CSV; re-runnable, skips existing files).
 Label mapping to HAM classes lives in `src/skinfair/data/fitzpatrick_mapping.py`.
