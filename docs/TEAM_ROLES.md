@@ -62,13 +62,13 @@ Each member plans their own work. The intro, conclusion and slides are written t
 ---
 
 ## Status
-Done (code, tests, and one real run per model on Colab T4, focal loss, seed 42; see `results/EXPERIMENTS.md`):
+Done (code, tests, and 4 real runs on Colab T4: ResNet-50 and ViT-B/16, focal loss, with and without oversampling, seed 42; see `results/EXPERIMENTS.md`):
 - Data pipeline, Fitzpatrick17k mapping (1,916 images), EDA notebook and figures
 - ResNet-50 + ViT-B/16 training, Grad-CAM, attention rollout, evaluation, fairness comparison, explanation-quality scores
 - `reports/REPORT.md`: methods, results, discussion, and draft introduction / conclusion
 
 Still open:
-- CE / weighted-CE vs focal, with / without oversampling (code ready, not run); hyper-parameter search; more seeds
+- Plain CE / weighted-CE comparison (code ready, not run); hyper-parameter search; more seeds (gap differences are not significant with one seed)
 - Team review of `reports/REPORT.md` (intro + conclusion are drafts), slides, final submission
 - Lesion masks for pointing-game / IoU are supported by `explain/quality.py` but not wired into `scripts/explain.py`
 - HAM10000 split depends on the scikit-learn version (Colab test n = 1,441, local 1,431); save the split to CSV to make it exact
