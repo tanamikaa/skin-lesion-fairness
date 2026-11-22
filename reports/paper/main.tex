@@ -1,0 +1,489 @@
+%**************************************************************************
+%*  P01 -- Fair & Explainable Skin-Lesion Classification: CNN vs ViT       *
+%*  ELCVIA camera-ready format (LaTeX2e)                                   *
+%**************************************************************************
+
+\documentclass[twoside,a4paper,11pt]{article}
+\usepackage{times}
+\usepackage{elcvia}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{booktabs}
+
+% INFORMATION TO FILL IN CAMERA READY VERSION
+%------------------------------------------------------------------
+\newcommand{\vol}{0}            % Number of Volume (default 0)
+\newcommand{\num}{0}            % Number (default 0)
+\setcounter{page}{1}            % First page (default 1)
+\newcommand{\begpag}{\thepage}
+\newcommand{\finpag}{8}         % Last Page (update once final)
+\newcommand{\yearp}{2026}       % Year of the issue
+%------------------------------------------------------------------
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+
+\title{Fair \& Explainable Skin-Lesion Classification: CNN vs Vision
+Transformer
+\footnote[0]{Correspondence to: su-24077@sitare.org \vspace{0.2cm}}
+}
+
+\author{Afzal Raza$^*$, Anamika Kumari$^*$, Khushi Narwariya$^*$ and Karanpal Singh Ranawat$^*$ \\ \\
+\centerline{\small \em $^*$ Team 1, P01 -- HAM10000 / Fitzpatrick17k Fairness Study} \\ \\
+\centerline{\small Received 22 November 2026; revised --; accepted --}
+}
+
+\begin{document}
+
+\maketitle
+
+\pagestyle{myheadings}
+
+\markboth{\centerline{\small \it Raza et al. /
+           Electronic Letters on Computer Vision and Image Analysis
+           \vol(\num):\begpag-\finpag, \yearp}}
+         {\centerline{\small \it Raza et al. /
+           Electronic Letters on Computer Vision and Image Analysis
+           \vol(\num):\begpag-\finpag, \yearp}}
+\hrulefill
+
+\begin{abstract}
+
+We study whether a convolutional network (ResNet-50) or a Vision
+Transformer (ViT-B/16) classifies the seven HAM10000 dermoscopic lesion
+types more fairly across Fitzpatrick skin types (I--VI), and which model
+yields more trustworthy visual explanations. Both architectures are
+fine-tuned on HAM10000 with a lesion-level, leakage-free train/val/test
+split (focal loss, one seed), and evaluated for class-balanced accuracy,
+per-skin-tone performance gaps (light I--III vs.\ dark IV--VI, using
+Fitzpatrick17k, with bootstrap 95\% confidence intervals), and
+explanation quality: Grad-CAM for the CNN and attention rollout for the
+ViT, scored with deletion/insertion AUC. ViT-B/16 reaches a slightly
+higher test balanced accuracy on HAM10000 (0.743 vs.\ 0.726) and is
+significantly more accurate on Fitzpatrick17k overall (McNemar
+$p<0.001$); both models perform markedly worse on Fitzpatrick17k than
+on HAM10000 (a dermoscopic-to-clinical domain shift), and the
+light-minus-dark balanced-accuracy point estimate is positive for all
+four model/sampling combinations we ran, though the 95\% CI excludes
+zero for only two of the four (ResNet-50 baseline, ViT-B/16 with
+oversampling). The light-vs-dark fairness gap is not significantly
+different between the two architectures (paired bootstrap, $p=0.36$),
+nor does class-balanced oversampling significantly change that gap for
+either model ($p=0.13$ and $p=0.55$).
+Our data therefore do not support claiming either architecture is
+fairer, or that oversampling improves fairness, though ViT-B/16 is
+clearly the more accurate model on the out-of-domain, skin-tone-labelled
+evaluation set.
+
+\vspace{0.5cm}
+\noindent
+{\em Key Words}: Computer Vision, Image Analysis, Fairness in Machine
+Learning, Skin-Lesion Classification, Convolutional Neural Networks,
+Vision Transformers, Explainability, Grad-CAM, Attention Rollout.
+
+\end{abstract}
+\hrulefill
+
+\section{Introduction}
+\label{sec:intro}
+
+Automated dermoscopic image classification can help triage suspicious
+skin lesions, but prior work has shown that deep models trained
+predominantly on light-skinned patients can under-perform on darker skin
+tones~\cite{Groh:21}. This raises both a scientific question --
+\emph{which architecture generalizes more fairly?} -- and a practical
+one -- \emph{how do we know what the model is actually looking at?}
+
+This paper compares two widely used backbones, a CNN (ResNet-50) and a
+Vision Transformer (ViT-B/16), fine-tuned on the HAM10000
+dataset~\cite{Tschandl:18} for 7-class lesion classification
+(\texttt{akiec}, \texttt{bcc}, \texttt{bkl}, \texttt{df}, \texttt{mel},
+\texttt{nv}, \texttt{vasc}). We evaluate skin-tone fairness using the
+Fitzpatrick17k dataset~\cite{Groh:21}, mapped onto the HAM10000 label
+space, and compare the explanations each model produces -- Grad-CAM for
+the CNN~\cite{Selvaraju:17} and attention rollout for the
+ViT~\cite{Abnar:20,Dosovitskiy:21}.
+
+\textbf{Research question:} Is ViT or CNN fairer across skin tones, and
+which one gives better explanations?
+
+\section{Related Work}
+\label{sec:related}
+
+Esteva et al.~\cite{Esteva:17} first showed dermatologist-level skin
+cancer classification with CNNs. Groh et al.~\cite{Groh:21} introduced
+Fitzpatrick17k and demonstrated accuracy disparities across skin tones
+for clinical-image classifiers. Dosovitskiy et al.~\cite{Dosovitskiy:21}
+introduced the Vision Transformer; Abnar and Zuidema~\cite{Abnar:20}
+proposed attention rollout as a way to visualize what a transformer
+attends to, analogous to Grad-CAM~\cite{Selvaraju:17} for CNNs. We are
+not aware of prior work that directly compares CNN vs.\ ViT fairness
+\emph{and} explanation quality jointly on this pair of datasets, though
+we have not conducted an exhaustive literature search.
+
+\section{Datasets}
+\label{sec:datasets}
+
+\begin{description}
+\item[HAM10000] 10{,}015 dermoscopic images from 7{,}470 lesions (1{,}956
+lesions have more than one image), heavily imbalanced towards
+\texttt{nv} (6{,}705 images; \texttt{mel} 1{,}113, \texttt{bkl} 1{,}099,
+\texttt{bcc} 514, \texttt{akiec} 327, \texttt{vasc} 142, \texttt{df}
+115 -- an \texttt{nv}/\texttt{df} imbalance ratio of 58). Splits are
+constructed at the \emph{lesion} level, not image level, using
+\texttt{StratifiedGroupKFold} grouped by \texttt{lesion\_id} and
+stratified by \texttt{dx} ($\sim$70/15/15), so that no lesion's images
+appear in more than one split; this is enforced by an explicit leakage
+assertion. The resulting local split is 7{,}153 / 1{,}431 / 1{,}431
+train/val/test images (Figure~\ref{fig:classdist}). The runs reported
+in Section~\ref{sec:results} were produced on Colab, where a different
+\texttt{scikit-learn} version yields a slightly different (still
+leakage-free) split with 1{,}441 test images rather than 1{,}431; see
+Section~\ref{sec:discussion} for why we report this rather than
+silently reconcile the two.
+
+\item[Fitzpatrick17k] 16{,}577 clinical images labelled with Fitzpatrick
+skin type (I--VI) and one of 114 clinical conditions. We keep only the
+subset of conditions mappable onto our 7 HAM10000 classes, deliberately
+leaving out, e.g., invasive squamous cell carcinoma (not
+\texttt{akiec}) and port-wine stain (not \texttt{vasc}); this yields
+1{,}916 mappable images (\texttt{bcc} 596, \texttt{mel} 573,
+\texttt{nv} 236, \texttt{vasc} 188, \texttt{akiec} 175, \texttt{df} 79,
+\texttt{bkl} 69), with 450 / 672 / 380 / 221 / 103 / 34 images for
+Fitzpatrick types I--VI respectively (56 unknown). We use this subset
+purely as a skin-tone-labelled \emph{evaluation} set, since its images
+are clinical rather than dermoscopic photographs: this is a genuine
+domain shift on top of any skin-tone effect, which we report
+explicitly rather than conflate with fairness (Section~\ref{sec:results}).
+\end{description}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/eda_ham_classes.png}
+\caption{HAM10000 class distribution (dominated by \texttt{nv}).}
+\label{fig:classdist}
+\end{figure}
+
+\section{Method}
+\label{sec:method}
+
+\subsection{Models}
+Both backbones are initialized from ImageNet-pretrained weights and
+fine-tuned with a new 7-class head. The CNN is a ResNet-50 (backbone
+frozen for the first epochs, then unfrozen); the ViT is ViT-B/16 via
+\texttt{timm}, with layer-wise learning-rate decay (0.75), 3 warm-up
+epochs and a cosine schedule. Both share one training loop (AdamW, AMP,
+gradient clipping, early stopping on validation balanced accuracy).
+
+\subsection{Class-imbalance handling}
+HAM10000 is heavily imbalanced towards the \texttt{nv} (melanocytic
+nevus) class (Section~\ref{sec:datasets}). We train with focal
+loss~\cite{Lin:17} ($\gamma=2$, optional per-class weights), each model
+once without and once with a class-balanced
+\texttt{WeightedRandomSampler} -- four runs in total (ResNet-50 and
+ViT-B/16, each with/without oversampling). Class weights are disabled
+when oversampling is on, to avoid double-correcting for imbalance. A
+plain cross-entropy / weighted-cross-entropy comparison was planned but
+not run in this iteration; see Section~\ref{sec:discussion}.
+
+\subsection{Explainability}
+For the CNN we compute Grad-CAM~\cite{Selvaraju:17} heat-maps from the
+last convolutional block. For the ViT we compute attention
+rollout~\cite{Abnar:20} across all transformer blocks, projecting the
+CLS-token attention back onto the $14\times14$ patch grid and
+upsampling to the input resolution. Both explanation types are
+normalized to $[0,1]$ heat-maps of the same shape for a like-for-like
+comparison.
+
+\subsection{Fairness and explanation-quality metrics}
+We report overall and per-class accuracy, balanced accuracy, macro-F1
+and macro-AUROC, then, for Fitzpatrick17k, balanced accuracy per
+Fitzpatrick type, the gap (max $-$ min) and ratio (min~/~max) across
+types, and the light (I--III) vs.\ dark (IV--VI) split, with bootstrap
+95\% confidence intervals (groups resampled independently, 1{,}000
+bootstrap resamples). We additionally compare the two architectures
+with a paired bootstrap on the light-minus-dark gap difference (same
+images, resampled jointly, 2{,}000 resamples) and an exact McNemar test
+on accuracy. Explanation
+quality is scored with deletion and insertion AUC~\cite{Petsiuk:18},
+compared between Grad-CAM and attention rollout, overall and per
+skin-tone group; pointing-game / IoU against lesion masks is
+implemented but not evaluated here -- HAM10000 lesion segmentation
+masks are available on the Harvard Dataverse, we simply have not wired
+them into this pipeline yet.
+
+\section{Experimental Setup}
+\label{sec:setup}
+
+All experiments use $224\times224$ inputs, ImageNet normalization,
+AMP mixed-precision training, early stopping on validation balanced
+accuracy, and a fixed seed (42) for reproducibility, trained on a
+single Colab T4 GPU. Full configs are version-controlled in
+\texttt{configs/resnet50.yaml} and \texttt{configs/vit\_b16.yaml}; both
+models use their config defaults (ResNet-50 lr $10^{-4}$, ViT-B/16 lr
+$3\times10^{-5}$, batch size 32, up to 15 epochs, early-stopping
+patience 5). An equal-budget hyperparameter search
+(\texttt{scripts/hparam\_search.py}) was implemented but not run in
+this iteration -- see Section~\ref{sec:discussion} for how this limits
+the comparison.
+
+\section{Results}
+\label{sec:results}
+
+Results below are from one training run per setting (seed 42; focal
+loss), selected on validation balanced accuracy. Test set = HAM10000
+lesion-level hold-out ($n=1{,}441$); Fitzpatrick17k ($n=1{,}916$
+mappable images) is evaluation-only, and is a different domain
+(clinical, not dermoscopic) from the training data.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+ & ResNet-50 & ViT-B/16 \\
+\midrule
+Best val.\ balanced acc.\ (epoch) & 0.789 (8) & 0.821 (7) \\
+HAM10000 test acc.\ / bal.\ acc.\ / macro-F1 / macro-AUROC & 0.809 / 0.726 / 0.659 / 0.954 & 0.797 / 0.743 / 0.670 / 0.964 \\
+Fitzpatrick17k acc.\ / bal.\ acc.\ & 0.245 / 0.269 & 0.385 / 0.336 \\
+Light$-$dark bal.-acc.\ gap [95\% CI] & 0.077 [0.023, 0.127] & 0.044 [$-$0.013, 0.104] \\
+Max$-$min over skin types (ratio min/max) & 0.156 (0.55) & 0.121 (0.70) \\
+\bottomrule
+\end{tabular}
+\caption{Overall and skin-tone-fairness results, focal loss, no
+oversampling. CIs use 1{,}000 bootstrap resamples, matching
+Table~\ref{tab:oversample} (one consistent source throughout).}
+\label{tab:main}
+\end{table}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+FST & I ($n$=450) & II ($n$=672) & III ($n$=380) & IV ($n$=221) & V ($n$=103) & VI ($n$=34) \\
+\midrule
+ResNet-50 & 0.350 & 0.276 & 0.193 & 0.208 & 0.202 & 0.203 \\
+ViT-B/16  & 0.401 & 0.337 & 0.291 & 0.337 & 0.280 & 0.286 \\
+\bottomrule
+\end{tabular}
+\caption{Balanced accuracy per Fitzpatrick skin type (FST). CIs for
+types V and VI are wide (e.g.\ ResNet-50 type VI: 0.113--0.389) given
+the small sample sizes; see Figure~\ref{fig:fst}.}
+\label{tab:fst}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/fst_comparison.png}
+\caption{Balanced accuracy per Fitzpatrick skin type, ResNet-50 vs.\
+ViT-B/16, with bootstrap 95\% CIs.}
+\label{fig:fst}
+\end{figure}
+
+\textbf{CNN vs.\ ViT fairness gap.} A paired bootstrap on the same
+1{,}860 images with a known skin type gives a gap difference
+(ResNet$-$ViT) of 0.034, 95\% CI [$-$0.041, 0.109], $p=0.36$ --
+\emph{not} statistically significant. An exact McNemar test on
+accuracy shows ViT is correct where ResNet is wrong on 479 images,
+and the reverse on 212 ($p<0.001$): ViT-B/16 is significantly more
+accurate on Fitzpatrick17k overall, even though its fairness gap is not
+significantly smaller (Figure~\ref{fig:gap}).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/gap_comparison.png}
+\caption{Light-minus-dark balanced-accuracy gap, ResNet-50 vs.\
+ViT-B/16, with bootstrap 95\% CIs.}
+\label{fig:gap}
+\end{figure}
+
+\textbf{Explanations.} Computed for the two baseline (no-oversampling)
+runs only. Deletion AUC (lower is better) and insertion AUC (higher is
+better), first 256 Fitzpatrick17k images:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Method & Deletion AUC & Insertion AUC \\
+\midrule
+ResNet-50 + Grad-CAM & 0.310 & 0.544 \\
+ViT-B/16 + attention rollout & 0.239 & 0.441 \\
+ViT-B/16 + Grad-CAM & 0.259 & 0.453 \\
+\bottomrule
+\end{tabular}
+\caption{Explanation-quality metrics (deletion/insertion AUC). Per-FST
+breakdowns are in \texttt{results/*/*/explain/fitz/quality\_*.csv};
+types V and VI have only 14 and 6 images respectively and are not
+interpretable at this sample size.}
+\label{tab:explain}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.46\textwidth]{figures/overlay_resnet50_focal_s42_gradcam_fitz.png}
+\hfill
+\includegraphics[width=0.46\textwidth]{figures/overlay_vit_b16_focal_s42_attention_rollout_fitz.png}
+\caption{Explanation overlays on the same 8 example Fitzpatrick17k
+images (top row of each grid: original image; bottom row: heat-map
+overlay): ResNet-50 + Grad-CAM (left grid) vs.\ ViT-B/16 + attention
+rollout (right grid).}
+\label{fig:overlays}
+\end{figure}
+
+\subsection{Effect of oversampling (focal loss, seed 42)}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lccccc}
+\toprule
+Run & Val.\ bal.-acc.\ & HAM test acc./bal.-acc./F1 & Mel.\ recall & Fitz.\ bal.-acc.\ & Gap [95\% CI] \\
+\midrule
+ResNet-50, no oversampling & 0.789 & 0.809/0.726/0.659 & 0.53 & 0.269 & 0.077 [0.023, 0.127] \\
+ResNet-50 + oversampling   & 0.794 & 0.750/0.717/0.651 & 0.60 & 0.260 & 0.022 [$-$0.039, 0.088] \\
+ViT-B/16, no oversampling  & 0.821 & 0.797/0.743/0.670 & 0.57 & 0.336 & 0.044 [$-$0.013, 0.104] \\
+ViT-B/16 + oversampling    & 0.820 & 0.809/0.758/0.711 & 0.64 & 0.327 & 0.060 [0.006, 0.116] \\
+\bottomrule
+\end{tabular}
+\caption{Effect of class-balanced oversampling. Gap = light-minus-dark
+balanced accuracy.}
+\label{tab:oversample}
+\end{table}
+
+A paired bootstrap on the gap (same 1{,}860 images with a known skin
+type) gives: ResNet-50 oversampling$-$baseline $=-0.055$, 95\% CI
+[$-$0.128, 0.016], $p=0.13$; ViT-B/16 oversampling$-$baseline
+$=+0.016$, CI [$-$0.041, 0.072], $p=0.55$; ViT$-$ResNet (both
+oversampled) $=+0.038$, CI [$-$0.041, 0.118], $p=0.37$. None of these
+differences is statistically significant.
+
+\section{Discussion}
+\label{sec:discussion}
+
+On HAM10000 the two architectures are close (balanced accuracy 0.726
+vs.\ 0.743), with ViT-B/16 slightly ahead. On Fitzpatrick17k both drop
+sharply (balanced accuracy 0.27 and 0.34, against a chance rate of
+about 0.14); this is mostly a dermoscopic-to-clinical \emph{domain
+shift}, not solely a skin-tone effect, since our evaluation set
+necessarily conflates the two. The light-minus-dark gap point estimate
+is positive in all four runs (lower accuracy on dark skin), but the
+95\% CI excludes zero in only two of the four (ResNet-50 baseline and
+ViT-B/16 with oversampling) and includes zero in the other two
+(ResNet-50 with oversampling, ViT-B/16 baseline) -- so the effect is
+not consistently distinguishable from noise at this sample size. The
+direct CNN-vs-ViT comparison on the baseline runs is \emph{not}
+significant either ($p=0.36$), so we cannot claim ViT is the fairer
+architecture, even though it is clearly the more accurate one on this
+out-of-domain set.
+
+Oversampling made no clear difference to validation balanced accuracy
+(0.789$\to$0.794, 0.821$\to$0.820). On the HAM10000 test set, balanced
+accuracy moved by $-$0.009 (ResNet-50) and $+$0.015 (ViT-B/16), and
+melanoma recall rose for both models (0.53$\to$0.60, 0.57$\to$0.64),
+but ResNet-50's overall accuracy fell (0.809$\to$0.750). All
+oversampling-induced gap changes have CIs including zero, and the gap
+CIs flip sides of zero between the two ResNet-50 runs (and between the
+two ViT-B/16 runs in the opposite direction) -- evidence that a
+single-seed fairness gap is too noisy to rank models on fairness from
+one run.
+
+A clinically relevant failure mode, from the baseline (no-oversampling)
+runs: on Fitzpatrick17k, ResNet-50 predicts \texttt{nv} for 41\% of
+images (true share 12\%) versus 27\% for ViT-B/16; on HAM10000, 28\% of
+melanomas (41/146) are misclassified as \texttt{nv} by ResNet-50 versus
+19\% (27/146) by ViT-B/16. Melanoma recall is only 0.53--0.64 across
+our four runs, which matters more than the aggregate accuracy numbers
+above.
+
+\textbf{Limitations.} The HAM10000 split is sensitive to the
+\texttt{scikit-learn} version used (1{,}441 vs.\ 1{,}431 test images
+across two environments; both splits are leakage-free, verified by an
+explicit assertion). Results are from one seed and one training run per
+setting, with default hyperparameters (no search) and only the
+focal-loss setting (no plain-CE / weighted-CE comparison). HAM10000
+itself carries no skin-type labels, so fairness is measured only on
+the out-of-domain Fitzpatrick17k subset, and the label mapping keeps
+only 1{,}916 of 16{,}577 images, by design excluding conditions such as
+invasive squamous cell carcinoma and port-wine stain. Skin types V and
+VI have only 103 and 34 images respectively, and \texttt{df}/\texttt{bkl}
+are small throughout; explanation-quality numbers use only 256 images
+(6 of type VI) and the deletion/insertion AUC scale depends on each
+model's own probability calibration, so the cross-model explanation
+comparison in Table~\ref{tab:explain} is indicative only. Pointing-game
+/ IoU against lesion masks was not computed -- not because masks are
+unavailable (HAM10000 lesion segmentation masks exist on the Harvard
+Dataverse) but because they are not yet wired into this pipeline.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We built a reproducible pipeline -- lesion-level splits, ResNet-50 and
+ViT-B/16 with a shared training loop, Grad-CAM and attention rollout,
+and per-skin-type evaluation with bootstrap confidence intervals -- and
+ran four focal-loss models (ResNet-50 and ViT-B/16, each with and
+without class-balanced oversampling). ViT-B/16 reaches a slightly
+higher balanced accuracy on the HAM10000 test set (0.743/0.758 vs.\
+0.726/0.717 for ResNet-50 without/with oversampling) and is
+significantly more accurate on Fitzpatrick17k. All four models perform
+markedly worse out-of-domain, and the light-minus-dark gap point
+estimate is positive in all four (between 0.022 and 0.077), though its
+95\% CI excludes zero in only two of the four runs. None of the gap
+differences -- neither
+between architectures nor caused by oversampling -- is statistically
+significant at our sample sizes. \textbf{Our data therefore do not
+show that either architecture is fairer, nor that oversampling improves
+fairness}, even though ViT-B/16 is clearly the more accurate model
+overall on the skin-tone-labelled evaluation set. Oversampling raised
+melanoma recall for both architectures without changing validation
+performance. Future work: multiple seeds per setting, the planned
+CE/weighted-CE comparison and equal-budget hyperparameter search,
+lesion masks for pointing-game/IoU evaluation, and -- most importantly
+for the original research question -- evaluation on a dermoscopic
+dataset that itself carries skin-tone labels, to separate the fairness
+question from the domain-shift confound in our current results.
+
+\section*{Acknowledgements}
+
+Team 1: Afzal Raza (data pipeline, splits, Fitzpatrick label mapping,
+EDA), Anamika Kumari (ResNet-50 baseline, focal loss, training loop,
+Grad-CAM), Khushi Narwariya (ViT-B/16 fine-tuning, attention rollout,
+hyperparameter search), Karanpal Singh Ranawat (fairness and
+explanation-quality evaluation, statistical tests).
+
+\begin{thebibliography}{9}
+
+\bibitem{Esteva:17}
+A. Esteva et al., ``Dermatologist-level classification of skin cancer
+with deep neural networks'', \emph{Nature} 542:115--118, 2017.
+
+\bibitem{Dosovitskiy:21}
+A. Dosovitskiy et al., ``An Image is Worth 16x16 Words: Transformers
+for Image Recognition at Scale'', \emph{ICLR}, 2021.
+
+\bibitem{Groh:21}
+M. Groh et al., ``Evaluating Deep Neural Networks Trained on Clinical
+Images in Dermatology with the Fitzpatrick 17k Dataset'',
+\emph{CVPR Workshops}, 2021.
+
+\bibitem{Tschandl:18}
+P. Tschandl, C. Rosendahl, H. Kittler, ``The HAM10000 dataset'',
+\emph{Scientific Data} 5:180161, 2018.
+
+\bibitem{Selvaraju:17}
+R. R. Selvaraju et al., ``Grad-CAM: Visual Explanations from Deep
+Networks via Gradient-based Localization'', \emph{ICCV}, 2017.
+
+\bibitem{Abnar:20}
+S. Abnar, W. Zuidema, ``Quantifying Attention Flow in Transformers'',
+\emph{ACL}, 2020.
+
+\bibitem{Lin:17}
+T.-Y. Lin et al., ``Focal Loss for Dense Object Detection'',
+\emph{ICCV}, 2017.
+
+\bibitem{Petsiuk:18}
+V. Petsiuk, A. Das, K. Saenko, ``RISE: Randomized Input Sampling for
+Explanation of Black-box Models'', \emph{BMVC}, 2018.
+
+\end{thebibliography}
+
+\end{document}
