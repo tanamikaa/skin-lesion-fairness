@@ -1,11 +1,18 @@
 # Fair & Explainable Skin-Lesion Classification: CNN vs Vision Transformer
 
 > Draft. Numbers below come from one run per model (seed 42) logged in `results/EXPERIMENTS.md`
-> (`results/*/*/metrics.json`, `reports/figures/fairness_comparison.json`). Remaining **TBD**s are for the
-> team: introduction, conclusion, and experiments we did not run.
+> (`results/*/*/metrics.json`, `reports/figures/fairness_comparison.json`). Introduction and conclusion are drafts for the
+> team to edit; the oversampling / CE comparison was not run.
 
-## 1. Introduction  *(written together)*
-TBD
+## 1. Introduction  *(draft, team to edit)*
+Deep-learning classifiers for skin lesions are usually trained on dermoscopic data that is dominated by lighter
+skin, so a model that looks accurate overall may work worse for patients with darker skin. We study the 7-class
+HAM10000 lesion classification task with two model families, a CNN (ResNet-50) and a Vision Transformer
+(ViT-B/16), and ask: **which one is fairer across Fitzpatrick skin types, and which gives better explanations
+(Grad-CAM for the CNN, attention rollout for the ViT)?** HAM10000 has no skin-type labels, so fairness is measured on
+Fitzpatrick17k, restricted to the conditions that map onto the 7 HAM classes. Both datasets are heavily imbalanced
+(nv is 67% of HAM10000), which we address with focal loss. Related work: Esteva et al. (2017) for CNN
+dermatology classifiers, Dosovitskiy et al. (2021) for ViT, and Groh et al. (2021) for Fitzpatrick17k.
 
 ## 2. Datasets & preprocessing  *(Afzal)*
 - **HAM10000**: 7 dermoscopic classes, strongly imbalanced (nv dominates). Split **at lesion level**
@@ -85,9 +92,19 @@ What the numbers support:
 - On HAM10000 the two models are close (balanced acc 0.726 vs 0.743); ViT has the higher validation score.
 - On Fitzpatrick17k both models drop sharply (balanced acc 0.27 and 0.34, chance is about 0.14). This is mostly dermoscopic -> clinical **domain shift**, not only skin tone.
 - Both models score lower on dark skin. The ResNet gap (0.077) has a CI above zero; the ViT gap (0.044) has a CI that includes zero. The direct comparison is **not significant** (p = 0.36), so we cannot claim that ViT is fairer; ViT is more accurate overall on Fitzpatrick17k.
+- Behaviour worth noting: on Fitzpatrick17k ResNet-50 predicts `nv` for 41% of images (true share 12%), ViT-B/16 for 27%; on HAM10000 about 28% of melanomas (41 of 146) are predicted as `nv` by ResNet-50 and 19% (27) by ViT-B/16. Melanoma recall is only 0.53 and 0.57, which matters clinically.
 - Per-class recall by light vs dark (`per_class_recall_light_vs_dark` in `metrics.json`) shows no consistent pattern; `df` has only 8 dark-skin images and recall 0 for both models.
 
 Limitations: the HAM10000 split depends on the scikit-learn version (Colab test n = 1,441 vs 1,431 locally), so numbers should be reproduced in a single environment; one seed and one training run per model; default hyper-parameters (no search); only the focal-loss setting; HAM10000 itself has no skin-type labels, so fairness is measured only on Fitzpatrick17k; the label mapping to 7 classes drops most conditions (1,916 of 16,577 images) and leaves squamous cell carcinoma and port-wine stain unmapped on purpose; skin types V and VI have only 103 and 34 images, and `df`/`bkl` are small. Explanation-quality numbers use 256 images (6 of type VI), and deletion/insertion AUC depends on each model's probability scale, so cross-model comparison is only indicative. Pointing-game / IoU were not computed (no lesion masks).
 
-## 6. Conclusion  *(written together)*
-TBD
+## 6. Conclusion  *(draft, team to edit)*
+We built a reproducible pipeline (lesion-level splits, ResNet-50 and ViT-B/16 with a shared training loop,
+Grad-CAM / attention rollout, per-skin-type evaluation with bootstrap CIs) and ran one focal-loss model of each type.
+Both reach a similar balanced accuracy on the HAM10000 test set (0.726 ResNet-50, 0.743 ViT-B/16). On Fitzpatrick17k,
+which adds a dermoscopic-to-clinical domain shift, both drop strongly and both perform worse on dark skin
+(light-minus-dark gap 0.077 for ResNet-50, 0.044 for ViT-B/16). The difference between the two gaps is not
+statistically significant, so **our data do not show that either architecture is fairer**; ViT-B/16 is
+more accurate on Fitzpatrick17k overall. Explanation-quality scores (deletion / insertion AUC) are reported but are
+based on 256 images with very few dark-skin samples, so they are indicative only. Future work: several seeds,
+the CE / weighted-CE / oversampling comparison and a hyper-parameter search with equal budget, a fixed saved split,
+lesion masks for pointing-game / IoU, and evaluation on a dataset with dermoscopic images labelled by skin tone.

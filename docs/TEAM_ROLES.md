@@ -61,11 +61,14 @@ Each member plans their own work. The intro, conclusion and slides are written t
 
 ---
 
-## Status (code vs. things that need real data / GPU)
-`[x]` = implemented and unit-tested on synthetic data. Still to do **by running on the real datasets**:
-- Afzal: verify the label mapping (done: 1,916 Fitzpatrick17k rows map) and run `notebooks/01_eda.ipynb`
-- Anamika: CE vs weighted CE vs focal, ± oversampling experiments; best ResNet-50 checkpoint; Grad-CAM maps (`scripts/explain.py`)
-- Khushi: ViT run, `scripts/hparam_search.py` for both models, attention maps
-- Karanpal: `scripts/evaluate.py` per checkpoint, `scripts/compare_models.py`, explanation-quality tables in `reports/figures/`
-- Everyone: log runs in `results/EXPERIMENTS.md`, fill `reports/REPORT.md`
-- Not implemented: lesion segmentation masks for pointing-game/IoU are supported by `explain/quality.py` but the masks (separate HAM10000 download) are not wired into `scripts/explain.py`
+## Status
+Done (code, tests, and one real run per model on Colab T4, focal loss, seed 42; see `results/EXPERIMENTS.md`):
+- Data pipeline, Fitzpatrick17k mapping (1,916 images), EDA notebook and figures
+- ResNet-50 + ViT-B/16 training, Grad-CAM, attention rollout, evaluation, fairness comparison, explanation-quality scores
+- `reports/REPORT.md`: methods, results, discussion, and draft introduction / conclusion
+
+Still open:
+- CE / weighted-CE vs focal, with / without oversampling (code ready, not run); hyper-parameter search; more seeds
+- Team review of `reports/REPORT.md` (intro + conclusion are drafts), slides, final submission
+- Lesion masks for pointing-game / IoU are supported by `explain/quality.py` but not wired into `scripts/explain.py`
+- HAM10000 split depends on the scikit-learn version (Colab test n = 1,441, local 1,431); save the split to CSV to make it exact
