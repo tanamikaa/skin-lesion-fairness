@@ -304,6 +304,16 @@ interpretable at this sample size.}
 \label{tab:explain}
 \end{table}
 
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.46\textwidth]{figures/overlay_resnet50_focal_s42_gradcam_fitz.png}
+\hfill
+\includegraphics[width=0.46\textwidth]{figures/overlay_vit_b16_focal_s42_attention_rollout_fitz.png}
+\caption{Example explanation overlays on a Fitzpatrick17k image:
+ResNet-50 + Grad-CAM (left) vs.\ ViT-B/16 + attention rollout (right).}
+\label{fig:overlays}
+\end{figure}
+
 \subsection{Effect of oversampling (focal loss, seed 42)}
 
 \begin{table}[h]
