@@ -1,72 +1,106 @@
-"""Map Fitzpatrick17k `label` strings to the 7 HAM10000 classes. Owner: Afzal Raza.
+# This file translates Fitzpatrick17k condition names into the 7 HAM10000 class codes.
+# The model is trained on HAM10000 but also tested on Fitzpatrick17k, which uses its own
+# 114 condition names. To score the model there, each name must become one of our 7 codes.
+# Any label not listed in the table below is dropped (it has no HAM match).
+# Notes: squamous cell carcinoma is NOT mapped to akiec, and port wine stain is NOT mapped
+# to vasc, because they are different diseases.
 
-Anything not listed is dropped (Fitzpatrick17k has 114 conditions, most have no HAM equivalent).
-
-Decisions worth knowing (report them honestly):
-* `squamous cell carcinoma` is NOT mapped to `akiec`: HAM's akiec is actinic keratosis /
-  Bowen's disease (in-situ), whereas invasive SCC is a different entity.
-* `port wine stain` is NOT mapped to `vasc`: it is a capillary malformation, not an angioma.
-* Keys were verified against the real fitzpatrick17k.csv (16,577 rows): 1,916 rows map.
-  Re-check with `mapping_report` if the CSV version changes.
-"""
+# lets us write the `str | None` type hint on older Python versions
 from __future__ import annotations
 
+# Counter counts how many times each value appears
 from collections import Counter
 
+# lookup table: Fitzpatrick17k label (lower case) -> HAM10000 class code.
+# Keys must be lower case because normalise_label lower-cases labels before the lookup.
 FITZ_TO_HAM = {
-    # melanoma
+    # melanoma names all map to "mel"
     "melanoma": "mel",
     "malignant melanoma": "mel",
     "superficial spreading melanoma ssm": "mel",
     "lentigo maligna": "mel",
-    # basal cell carcinoma
+    # basal cell carcinoma names map to "bcc"
     "basal cell carcinoma": "bcc",
     "basal cell carcinoma morpheiform": "bcc",
     "solid cystic basal cell carcinoma": "bcc",
-    # actinic keratoses / intraepithelial carcinoma
+    # actinic keratosis maps to "akiec"
     "actinic keratosis": "akiec",
-    # benign keratosis-like lesions
+    # seborrheic keratosis maps to "bkl" (benign keratosis-like lesions)
     "seborrheic keratosis": "bkl",
-    # dermatofibroma
+    # dermatofibroma maps to "df"
     "dermatofibroma": "df",
-    # melanocytic nevi
+    # nevus (mole) names map to "nv"
     "nevocytic nevus": "nv",
     "congenital nevus": "nv",
     "halo nevus": "nv",
-    # vascular lesions
+    # pyogenic granuloma names map to "vasc" (vascular lesions)
     "pyogenic granuloma": "vasc",
     "granuloma pyogenic": "vasc",
 }
 
 
+# Cleans a label so it can be looked up: text, no side spaces, lower case.
+# Args: label: a label (usually a string, but NaN or a number also works).
+# Returns: a clean string, e.g. "  Melanoma " becomes "melanoma".
+# Why: small differences in case or spaces would otherwise cause missed matches.
 def normalise_label(label) -> str:
-    """Turn a raw label into a lookup key: text, no outer spaces, lower case.
-
-    Input: any value (str() handles NaN or numbers). Returns the cleaned string.
+    """Cleans a label so it can be looked up in the mapping table.
+    It turns the label into text, so NaN and numbers do not break it.
+    It removes spaces at the start and end.
+    It changes all letters to lower case.
+    Input: label, usually a string.
+    Output: a clean string. It is needed so small differences do not cause missed matches.
     """
+    # str() makes NaN and numbers safe, strip removes side spaces, lower makes lower case
     return str(label).strip().lower()
 
 
+# Finds the HAM class for a Fitzpatrick17k label.
+# Args: label: a Fitzpatrick17k condition name.
+# Returns: one of the 7 class codes (like "mel"), or None if there is no match.
+# Example: map_label("Halo Nevus") gives "nv"; map_label("psoriasis") gives None.
 def map_label(label) -> str | None:
-    """Return the HAM class for a Fitzpatrick17k label, or None if it is unmapped."""
-    return FITZ_TO_HAM.get(normalise_label(label))  # .get returns None for unknown keys
-
-
-def mapping_report(df, label_col: str = "label") -> dict:
-    """Summarise how a fitzpatrick17k dataframe maps onto HAM classes.
-
-    Returns dict with: kept (rows kept), dropped (rows dropped), per_class (Counter of
-    HAM classes), missing_keys (mapping keys never seen in the CSV - likely typos),
-    unmapped (Counter of labels dropped).
-    Input: DataFrame with a label column (name given by label_col).
+    """Finds the HAM10000 class code for a Fitzpatrick17k condition name.
+    Step 1: clean the label with normalise_label.
+    Step 2: look the clean text up in the FITZ_TO_HAM table.
+    Step 3: if it is not in the table, give back None.
+    Input: label, a condition name.
+    Output: a class code like "mel", or None. It is needed to score the model on Fitzpatrick17k.
     """
-    norm = df[label_col].map(normalise_label)  # cleaned label per row
-    mapped = norm.map(FITZ_TO_HAM)  # HAM class per row, NaN where not in the mapping
-    seen = set(norm.unique())  # all distinct cleaned labels in the CSV
+    # clean the label, then look it up; .get gives None when it is not in the table
+    return FITZ_TO_HAM.get(normalise_label(label))
+
+
+# Summarises how a Fitzpatrick17k table maps to HAM classes.
+# Args: df: the Fitzpatrick17k table.
+#       label_col: name of the column that holds the condition names.
+# Returns: a dict with kept and dropped row counts, rows per HAM class, mapping keys not
+#          found in the file (possible typos), and the dropped labels with counts.
+# Why: a quick check that the mapping table matches the real data.
+def mapping_report(df, label_col: str = "label") -> dict:
+    """Makes a summary of how a Fitzpatrick17k table maps to HAM classes.
+    Step 1: clean every label and map it to a HAM class.
+    Step 2: count rows kept (mapped) and rows dropped (no match).
+    Step 3: count rows per class and list mapping keys never seen in the file.
+    Input: df, the table, and label_col, the column with condition names.
+    Output: a report dict. It is needed to check the mapping fits the real data.
+    """
+    # clean label for every row
+    norm = df[label_col].map(normalise_label)
+    # HAM class for every row (NaN where there is no match)
+    mapped = norm.map(FITZ_TO_HAM)
+    # the set of all different labels that exist in the file
+    seen = set(norm.unique())
+    # build and return the report dict
     return {
+        # number of rows that have a HAM class
         "kept": int(mapped.notna().sum()),
+        # number of rows that have no HAM class
         "dropped": int(mapped.isna().sum()),
+        # number of rows for each HAM class
         "per_class": Counter(mapped.dropna()),
+        # mapping keys that never appear in the file (maybe typos)
         "missing_keys": sorted(k for k in FITZ_TO_HAM if k not in seen),
+        # dropped labels with how many times each appears
         "unmapped": Counter(norm[mapped.isna()]),
     }

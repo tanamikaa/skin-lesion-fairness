@@ -1,11 +1,10 @@
-"""skinfair — Fair & explainable skin-lesion classification (P01).
+# This file is the root of the skinfair package.
+# It only stores the list of diagnosis classes that every other file imports.
+# A class's position in the list is its number (label), so the order must never change.
 
-The package root only defines the list of diagnosis classes shared by every module.
-"""
-
-# The 7 HAM10000 diagnosis codes. The list index is the integer label used everywhere:
-# akiec = actinic keratosis / Bowen's, bcc = basal cell carcinoma, bkl = benign keratosis,
-# df = dermatofibroma, mel = melanoma, nv = melanocytic nevus, vasc = vascular lesion.
+# The 7 diagnosis codes of the HAM10000 dataset; the list position is the integer label.
+# akiec = actinic keratosis, bcc = basal cell carcinoma, bkl = benign keratosis,
+# df = dermatofibroma, mel = melanoma, nv = mole (nevus), vasc = vascular lesion.
 CLASSES = ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"]
-# Number of output units of the classifier head (7).
+# How many classes there are; the model needs one output score per class.
 NUM_CLASSES = len(CLASSES)
