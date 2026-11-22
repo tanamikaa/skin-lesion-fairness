@@ -17,7 +17,7 @@
 \newcommand{\num}{0}            % Number (default 0)
 \setcounter{page}{1}            % First page (default 1)
 \newcommand{\begpag}{\thepage}
-\newcommand{\finpag}{14}        % Last Page (update once final)
+\newcommand{\finpag}{8}         % Last Page (update once final)
 \newcommand{\yearp}{2026}       % Year of the issue
 %------------------------------------------------------------------
 \renewcommand{\thefootnote}{\fnsymbol{footnote}}
@@ -199,10 +199,11 @@ We report overall and per-class accuracy, balanced accuracy, macro-F1
 and macro-AUROC, then, for Fitzpatrick17k, balanced accuracy per
 Fitzpatrick type, the gap (max $-$ min) and ratio (min~/~max) across
 types, and the light (I--III) vs.\ dark (IV--VI) split, with bootstrap
-95\% confidence intervals (groups resampled independently, 2{,}000
-bootstrap samples). We additionally compare the two architectures with
-a paired bootstrap on the light-minus-dark gap difference (same images,
-resampled jointly) and an exact McNemar test on accuracy. Explanation
+95\% confidence intervals (groups resampled independently, 1{,}000
+bootstrap resamples). We additionally compare the two architectures
+with a paired bootstrap on the light-minus-dark gap difference (same
+images, resampled jointly, 2{,}000 resamples) and an exact McNemar test
+on accuracy. Explanation
 quality is scored with deletion and insertion AUC~\cite{Petsiuk:18},
 compared between Grad-CAM and attention rollout, overall and per
 skin-tone group; pointing-game / IoU against lesion masks is
@@ -321,8 +322,10 @@ interpretable at this sample size.}
 \includegraphics[width=0.46\textwidth]{figures/overlay_resnet50_focal_s42_gradcam_fitz.png}
 \hfill
 \includegraphics[width=0.46\textwidth]{figures/overlay_vit_b16_focal_s42_attention_rollout_fitz.png}
-\caption{Example explanation overlays on a Fitzpatrick17k image:
-ResNet-50 + Grad-CAM (left) vs.\ ViT-B/16 + attention rollout (right).}
+\caption{Explanation overlays on the same 8 example Fitzpatrick17k
+images (top row of each grid: original image; bottom row: heat-map
+overlay): ResNet-50 + Grad-CAM (left grid) vs.\ ViT-B/16 + attention
+rollout (right grid).}
 \label{fig:overlays}
 \end{figure}
 
