@@ -1,0 +1,35 @@
+{
+  "gaps": {
+    "ViT-B/16 + oversampling": {
+      "gap": 0.060037564192791215,
+      "ci_low": 0.0061049571758785,
+      "ci_high": 0.11046448924154076,
+      "n_light": 1502,
+      "n_dark": 358,
+      "n_boot": 2000
+    },
+    "ResNet-50 + oversampling": {
+      "gap": 0.02216762593117666,
+      "ci_low": -0.042916852181751716,
+      "ci_high": 0.0876731498885518,
+      "n_light": 1502,
+      "n_dark": 358,
+      "n_boot": 2000
+    }
+  },
+  "paired_gap_difference": {
+    "gap_a": 0.060037564192791215,
+    "gap_b": 0.02216762593117666,
+    "diff": 0.037869938261614555,
+    "ci_low": -0.04129527300669431,
+    "ci_high": 0.1182880758137699,
+    "p_value": 0.374,
+    "n_matched": 1860
+  },
+  "mcnemar_accuracy": {
+    "a_only_correct": 447,
+    "b_only_correct": 188,
+    "p_value": 2.842108687125315e-25
+  },
+  "note": "diff = gap_a - gap_b; negative means model A is fairer. Gap = light(I-III) - dark(IV-VI) balanced accuracy."
+}
