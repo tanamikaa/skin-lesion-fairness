@@ -108,3 +108,12 @@ more accurate on Fitzpatrick17k overall. Explanation-quality scores (deletion / 
 based on 256 images with very few dark-skin samples, so they are indicative only. Future work: several seeds,
 the CE / weighted-CE / oversampling comparison and a hyper-parameter search with equal budget, a fixed saved split,
 lesion masks for pointing-game / IoU, and evaluation on a dataset with dermoscopic images labelled by skin tone.
+
+## References
+1. Esteva et al., *Dermatologist-level classification of skin cancer with deep neural networks*, Nature 2017 - https://doi.org/10.1038/nature21056
+2. Dosovitskiy et al., *An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale*, ICLR 2021 - https://arxiv.org/abs/2010.11929
+3. Groh et al., *Evaluating Deep Neural Networks Trained on Clinical Images in Dermatology with the Fitzpatrick 17k Dataset*, CVPR-W 2021 - https://arxiv.org/abs/2104.09957
+4. Tschandl et al., *The HAM10000 dataset*, Scientific Data 2018 - https://doi.org/10.1038/sdata.2018.161
+5. Lin et al., *Focal Loss for Dense Object Detection*, ICCV 2017 (focal loss)
+6. Abnar & Zuidema, *Quantifying Attention Flow in Transformers*, ACL 2020 (attention rollout)
+7. Petsiuk et al., *RISE: Randomized Input Sampling for Explanation of Black-box Models*, BMVC 2018 (deletion / insertion)
