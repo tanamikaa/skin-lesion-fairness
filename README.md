@@ -58,7 +58,7 @@ python -m venv .venv
 pip install -r requirements.txt
 pip install -e .
 
-pytest                                           # unit tests (synthetic data, no download needed)
+pytest                                           # small unit tests (fairness metric, focal loss)
 
 # train (override any config value with --set, e.g. loss / oversampling experiments)
 python scripts/train.py --config configs/resnet50.yaml
