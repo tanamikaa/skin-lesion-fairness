@@ -18,94 +18,133 @@ import torch.nn.functional as F
 
 def _ranks(heatmaps):
     """Per-image pixel rank, 0 = most important. Returns LongTensor[B, H*W]."""
-    flat = heatmaps.flatten(1)
+    flat = heatmaps.flatten(1)  # [B, H*W]
+    # order[b, r] = index of the pixel with rank r (highest heat first; stable keeps ties in order)
     order = flat.argsort(dim=1, descending=True, stable=True)
     ranks = torch.empty_like(order)
+    # Invert the permutation: ranks[b, order[b, r]] = r, i.e. rank of each pixel.
     ranks.scatter_(1, order, torch.arange(flat.shape[1], device=flat.device).expand_as(order))
     return ranks
 
 
 @torch.no_grad()
 def _curve(model, images, heatmaps, steps, targets, mode):
+    """Compute the deletion or insertion curve for each image.
+
+    At steps+1 evenly spaced fractions f (0, 1/steps, ..., 1), the top f of pixels (by
+    heat-map) are removed (mode="deletion") or revealed (any other mode, used as
+    "insertion"), and the target-class probability is recorded.
+    Returns (fracs np.ndarray[steps+1], scores np.ndarray[B, steps+1]).
+    """
     device = next(model.parameters()).device
     was_training = model.training
     model.eval()
     images, heatmaps = images.to(device), heatmaps.to(device)
     B, _, H, W = images.shape
     if heatmaps.shape[-2:] != (H, W):
+        # Resize heat-maps to image size; [:, None] adds and [:, 0] removes the channel dim.
         heatmaps = F.interpolate(heatmaps[:, None], size=(H, W), mode="bilinear", align_corners=False)[:, 0]
     if targets is None:
-        targets = model(images).argmax(1)
+        targets = model(images).argmax(1)  # default: the class predicted on the intact image
     targets = torch.as_tensor(targets, device=device)
 
-    ranks = _ranks(heatmaps).reshape(B, 1, H, W)
+    ranks = _ranks(heatmaps).reshape(B, 1, H, W)  # 1 channel dim so it broadcasts over RGB
     # baseline: zeros == the dataset mean colour after normalisation (deletion) /
     # heavily blurred image (insertion), the usual RISE choices.
     zero = torch.zeros_like(images)
+    # 31x31 box blur; stride 1 + padding 15 keeps the size H x W; border pixels average only
+    # real pixels (count_include_pad=False).
     blur = F.avg_pool2d(images, kernel_size=31, stride=1, padding=15, count_include_pad=False)
-    total = H * W
-    fracs = np.linspace(0, 1, steps + 1)
+    total = H * W  # pixels per image
+    fracs = np.linspace(0, 1, steps + 1)  # fractions of pixels changed at each step
     scores = []
     for f in fracs:
-        k = int(round(f * total))
+        k = int(round(f * total))  # number of pixels to change at this step
         top = ranks < k  # [B, 1, H, W] True for the k most important pixels
         if mode == "deletion":
-            x = torch.where(top, zero, images)
+            x = torch.where(top, zero, images)  # top pixels replaced by baseline, rest kept
         else:
-            x = torch.where(top, images, blur)
-        p = torch.softmax(model(x).float(), dim=1).gather(1, targets[:, None]).squeeze(1)
+            x = torch.where(top, images, blur)  # top pixels shown sharp, rest stays blurred
+        # Probability of the target class: softmax over classes, then pick column targets[b].
+        p =torch.softmax(model(x).float(), dim=1).gather(1, targets[:, None]).squeeze(1)
         scores.append(p.cpu().numpy())
     model.train(was_training)
     return fracs, np.stack(scores, axis=1)  # [B, steps+1]
 
 
 def deletion_auc(model, images, heatmaps, steps=20, targets=None):
-    """Per-image deletion AUC (lower is better). Returns np.ndarray[B]."""
+    """Per-image deletion AUC (lower is better). Returns np.ndarray[B].
+
+    Low AUC = removing the pixels the heat-map marks as important quickly destroys the
+    prediction, so the heat-map points at what the model really uses.
+    """
     fracs, s = _curve(model, images, heatmaps, steps, targets, "deletion")
-    return np.trapezoid(s, fracs, axis=1)
+    return np.trapezoid(s, fracs, axis=1)  # area under probability-vs-fraction curve
 
 
 def insertion_auc(model, images, heatmaps, steps=20, targets=None):
-    """Per-image insertion AUC (higher is better). Returns np.ndarray[B]."""
+    """Per-image insertion AUC (higher is better). Returns np.ndarray[B].
+
+    High AUC = showing only the pixels the heat-map marks as important is already enough
+    for the model to recover its prediction.
+    """
     fracs, s = _curve(model, images, heatmaps, steps, targets, "insertion")
-    return np.trapezoid(s, fracs, axis=1)
+    return np.trapezoid(s, fracs, axis=1)  # area under probability-vs-fraction curve
 
 
 def pointing_game(heatmaps, masks):
     """1.0 if the heat-map's arg-max pixel lies inside the lesion mask, else 0.0. Returns np.ndarray[B].
 
     masks: bool/0-1 Tensor[B, H, W] (resized to the heat-map size if needed, nearest).
+
+    Averaged over images this gives the share of heat-maps whose hottest point is on the lesion.
     """
     heatmaps, masks = _align(heatmaps, masks)
-    idx = heatmaps.flatten(1).argmax(1)
+    idx = heatmaps.flatten(1).argmax(1)  # flat index of the hottest pixel per image
+    # Look up the mask value at that pixel (True/False) and convert to 1.0/0.0.
     return masks.flatten(1).gather(1, idx[:, None]).squeeze(1).float().numpy()
 
 
 def mask_iou(heatmaps, masks, threshold=0.5):
-    """IoU between the thresholded heat-map (>= threshold) and the lesion mask. Returns np.ndarray[B]."""
+    """IoU between the thresholded heat-map (>= threshold) and the lesion mask. Returns np.ndarray[B].
+
+    IoU (intersection over union) = overlap area / combined area; 1.0 = the hot region
+    matches the lesion exactly, 0.0 = no overlap.
+    """
     heatmaps, masks = _align(heatmaps, masks)
-    pred = heatmaps >= threshold
-    inter = (pred & masks).flatten(1).sum(1).float()
-    union = (pred | masks).flatten(1).sum(1).float()
-    return (inter / union.clamp(min=1)).numpy()
+    pred = heatmaps >= threshold  # binary "hot region" of the heat-map
+    inter = (pred & masks).flatten(1).sum(1).float()  # pixels in both
+    union = (pred | masks).flatten(1).sum(1).float()  # pixels in either
+    return (inter / union.clamp(min=1)).numpy()  # clamp avoids 0/0 when both are empty
 
 
 def _align(heatmaps, masks):
+    """Make heat-maps float and masks boolean, resizing masks to the heat-map size if needed.
+
+    Returns (heatmaps Tensor[B, H, W] float, masks Tensor[B, H, W] bool).
+    """
     heatmaps = torch.as_tensor(heatmaps).float()
     masks = torch.as_tensor(masks)
     if masks.shape[-2:] != heatmaps.shape[-2:]:
+        # "nearest" keeps mask values 0/1 (no blending at edges).
         masks = F.interpolate(masks[:, None].float(), size=heatmaps.shape[-2:], mode="nearest")[:, 0]
-    return heatmaps, masks > 0.5
+    return heatmaps, masks > 0.5  # convert to True/False
 
 
 def quality_by_group(scores, groups, method: str, metric: str = "value"):
     """Aggregate per-image scores by group (e.g. Fitzpatrick type).
 
     Returns DataFrame[method, group, n, value(mean), sem], ignoring group == -1.
+
+    Inputs: one score per image (e.g. deletion AUC), the group of each image, the method name
+    (e.g. "gradcam") and the name for the mean column (default "value"). sem = standard error
+    of the mean, a measure of how uncertain each group's mean is. If explanation quality is
+    much worse for some skin types, the explanations are less trustworthy for those patients.
     """
     df = pd.DataFrame({"score": np.asarray(scores), "group": np.asarray(groups)})
-    df = df[df["group"] != -1]
+    df = df[df["group"] != -1]  # drop unknown group
+    # Per group: number of images, mean score, standard error of the mean.
     agg = df.groupby("group")["score"].agg(["count", "mean", "sem"]).reset_index()
-    agg.columns = ["group", "n", metric, "sem"]
-    agg.insert(0, "method", method)
+    agg.columns = ["group", "n", metric, "sem"]  # rename columns
+    agg.insert(0, "method", method)  # add method name as the first column
     return agg

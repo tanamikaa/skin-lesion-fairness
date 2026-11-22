@@ -40,12 +40,16 @@ FITZ_TO_HAM = {
 
 
 def normalise_label(label) -> str:
+    """Turn a raw label into a lookup key: text, no outer spaces, lower case.
+
+    Input: any value (str() handles NaN or numbers). Returns the cleaned string.
+    """
     return str(label).strip().lower()
 
 
 def map_label(label) -> str | None:
     """Return the HAM class for a Fitzpatrick17k label, or None if it is unmapped."""
-    return FITZ_TO_HAM.get(normalise_label(label))
+    return FITZ_TO_HAM.get(normalise_label(label))  # .get returns None for unknown keys
 
 
 def mapping_report(df, label_col: str = "label") -> dict:
@@ -54,10 +58,11 @@ def mapping_report(df, label_col: str = "label") -> dict:
     Returns dict with: kept (rows kept), dropped (rows dropped), per_class (Counter of
     HAM classes), missing_keys (mapping keys never seen in the CSV - likely typos),
     unmapped (Counter of labels dropped).
+    Input: DataFrame with a label column (name given by label_col).
     """
-    norm = df[label_col].map(normalise_label)
-    mapped = norm.map(FITZ_TO_HAM)
-    seen = set(norm.unique())
+    norm = df[label_col].map(normalise_label)  # cleaned label per row
+    mapped = norm.map(FITZ_TO_HAM)  # HAM class per row, NaN where not in the mapping
+    seen = set(norm.unique())  # all distinct cleaned labels in the CSV
     return {
         "kept": int(mapped.notna().sum()),
         "dropped": int(mapped.isna().sum()),

@@ -7,6 +7,13 @@ Usage:
 
 Writes (in --out): fst_comparison.png, gap_comparison.png and fairness_comparison.json containing
 per-model gaps with bootstrap CIs, the paired bootstrap test on the gap difference, and McNemar.
+
+Arguments:
+  --a, --b            prediction CSVs of model A and model B (required)
+  --name-a, --name-b  display names for the two models (default "A" and "B")
+  --out               output folder (default reports/figures)
+  --n-boot            number of bootstrap resamples (default 2000)
+The JSON is also printed to the screen.
 """
 import argparse
 import json
@@ -32,12 +39,15 @@ if __name__ == "__main__":
     p.add_argument("--n-boot", type=int, default=2000)
     args = p.parse_args()
 
+    # Load both prediction tables (columns include label, pred, fitzpatrick).
     a, b = pd.read_csv(args.a), pd.read_csv(args.b)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
+    # Per Fitzpatrick type balanced accuracy with bootstrap CIs, one table per model.
     tables = {args.name_a: bootstrap_group_ci(a, n_boot=args.n_boot),
               args.name_b: bootstrap_group_ci(b, n_boot=args.n_boot)}
+    # Light-minus-dark balanced accuracy gap with a bootstrap CI, per model.
     gaps = {args.name_a: bootstrap_gap_ci(a, n_boot=args.n_boot),
             args.name_b: bootstrap_gap_ci(b, n_boot=args.n_boot)}
     plot_per_fst(tables, out / "fst_comparison.png")
@@ -45,6 +55,8 @@ if __name__ == "__main__":
 
     result = {
         "gaps": gaps,
+        # Paired bootstrap: is model A's gap really different from model B's?
+        # McNemar: do the two models differ in which images they get right?
         "paired_gap_difference": compare_gap_bootstrap(a, b, n_boot=args.n_boot),
         "mcnemar_accuracy": mcnemar_test(a, b),
         "note": "diff = gap_a - gap_b; negative means model A is fairer. Gap = light(I-III) - dark(IV-VI) balanced accuracy.",
