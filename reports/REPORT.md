@@ -51,7 +51,7 @@ Explanations: attention rollout (discard ratio 0.9, CLS row -> 14x14 -> 224x224)
 - CNN vs ViT: paired bootstrap on the light-minus-dark gap difference (same images, resampled jointly) and
   exact McNemar test on accuracy.
 - Explanation quality: deletion AUC (lower = better), insertion AUC (higher = better), per skin-tone group;
-  pointing-game / IoU implemented but need lesion masks (not wired in).
+  pointing-game / IoU implemented but not evaluated: the HAM10000 lesion masks (a separate Dataverse download) were not used.
 
 ## 4. Results
 Training on a Colab T4, selection on validation balanced accuracy only. Test set = HAM10000 lesion-level hold-out (n = 1,441).
@@ -111,14 +111,14 @@ What the numbers support:
 - Behaviour worth noting: on Fitzpatrick17k ResNet-50 predicts `nv` for 41% of images (true share 12%), ViT-B/16 for 27%; on HAM10000 about 28% of melanomas (41 of 146) are predicted as `nv` by ResNet-50 and 19% (27) by ViT-B/16. Melanoma recall is only 0.53 and 0.57, which matters clinically.
 - Per-class recall by light vs dark (`per_class_recall_light_vs_dark` in `metrics.json`) shows no consistent pattern; `df` has only 8 dark-skin images and recall 0 for both models.
 
-Limitations: the HAM10000 split depends on the scikit-learn version (Colab test n = 1,441 vs 1,431 locally), so numbers should be reproduced in a single environment; one seed and one training run per setting; default hyper-parameters (no search); only the focal-loss setting (no plain CE / weighted-CE); HAM10000 itself has no skin-type labels, so fairness is measured only on Fitzpatrick17k; the label mapping to 7 classes drops most conditions (1,916 of 16,577 images) and leaves squamous cell carcinoma and port-wine stain unmapped on purpose; skin types V and VI have only 103 and 34 images, and `df`/`bkl` are small. Explanation-quality numbers use 256 images (6 of type VI), and deletion/insertion AUC depends on each model's probability scale, so cross-model comparison is only indicative. Pointing-game / IoU were not computed (no lesion masks).
+Limitations: the HAM10000 split depends on the scikit-learn version (Colab test n = 1,441 vs 1,431 locally), so numbers should be reproduced in a single environment; one seed and one training run per setting; default hyper-parameters (no search); only the focal-loss setting (no plain CE / weighted-CE); HAM10000 itself has no skin-type labels, so fairness is measured only on Fitzpatrick17k; the label mapping to 7 classes drops most conditions (1,916 of 16,577 images) and leaves squamous cell carcinoma and port-wine stain unmapped on purpose; skin types V and VI have only 103 and 34 images, and `df`/`bkl` are small. Explanation-quality numbers use 256 images (6 of type VI), and deletion/insertion AUC depends on each model's probability scale, so cross-model comparison is only indicative. Pointing-game / IoU were not computed (HAM10000 lesion masks exist but were not downloaded or wired in).
 
 ## 6. Conclusion  *(draft, team to edit)*
 We built a reproducible pipeline (lesion-level splits, ResNet-50 and ViT-B/16 with a shared training loop,
 Grad-CAM / attention rollout, per-skin-type evaluation with bootstrap CIs) and ran four focal-loss models
 (ResNet-50 and ViT-B/16, each with and without oversampling). ViT-B/16 reaches a slightly higher balanced accuracy on the
 HAM10000 test set (0.743 / 0.758) than ResNet-50 (0.726 / 0.717). On Fitzpatrick17k, which adds a dermoscopic-to-clinical
-domain shift, all models drop strongly and all perform worse on dark skin (light-minus-dark gap between 0.022 and 0.077).
+domain shift, all models drop strongly and the light-minus-dark gap is positive for all four (between 0.022 and 0.077), i.e. lower balanced accuracy on dark skin, but its 95% CI excludes zero in only two of the four runs.
 None of the gap differences, neither between architectures nor caused by oversampling, is statistically significant, so
 **our data do not show that either architecture is fairer, nor that oversampling helps fairness**; ViT-B/16 is clearly more
 accurate on Fitzpatrick17k overall. Oversampling raised melanoma recall for both models but did not change validation
