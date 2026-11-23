@@ -17,7 +17,7 @@ Each member plans their own work. The intro, conclusion and slides are written t
 ---
 
 ## 1. Afzal Raza — Data pipeline
-- [ ] Download HAM10000 + Fitzpatrick17k, document exact steps in `data/README.md`
+- [x] Download HAM10000 + Fitzpatrick17k, document exact steps in `data/README.md`
 - [x] `datasets.py`: PyTorch `Dataset` classes for both datasets (image, label, `fitzpatrick` / `None`)
 - [x] `splits.py`: **lesion-level** stratified train/val/test split for HAM10000 (same `lesion_id` must never appear in two splits — avoids leakage)
 - [x] Map Fitzpatrick17k labels → the 7 HAM classes (`mel, nv, bcc, akiec, bkl, df, vasc`); drop / document unmapped ones
