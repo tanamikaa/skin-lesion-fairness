@@ -2,8 +2,9 @@
 
 Owner: **Afzal Raza**
 
-Nothing in this folder is committed. Team members can use the prepared copy on the team Drive (`skinfair_data/`),
-or download the data themselves as described below.
+Nothing in this folder is committed. Team members can use the prepared copy on the team Drive (`skinfair_data/`,
+access limited to the team): https://drive.google.com/drive/folders/1cT_QA54HdipOVXiTVHPzk4CTp__EWnpI
+It holds the datasets and the trained checkpoints (`ckpt/`). Otherwise, download the data yourself as described below.
 
 Expected layout after download:
 ```
