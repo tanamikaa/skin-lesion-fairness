@@ -1,0 +1,35 @@
+{
+  "ResNet-50: oversampling vs baseline": {
+    "paired_gap_difference": {
+      "gap_a": 0.02216762593117666,
+      "gap_b": 0.0773850439168231,
+      "diff": -0.055217417985646444,
+      "ci_low": -0.12821820450468158,
+      "ci_high": 0.016367238908008033,
+      "p_value": 0.129,
+      "n_matched": 1860
+    },
+    "mcnemar_accuracy": {
+      "a_only_correct": 168,
+      "b_only_correct": 176,
+      "p_value": 0.7059239842772651
+    }
+  },
+  "ViT-B/16: oversampling vs baseline": {
+    "paired_gap_difference": {
+      "gap_a": 0.060037564192791215,
+      "gap_b": 0.04378428510035881,
+      "diff": 0.016253279092432404,
+      "ci_low": -0.04070422813820785,
+      "ci_high": 0.07216841886655423,
+      "p_value": 0.545,
+      "n_matched": 1860
+    },
+    "mcnemar_accuracy": {
+      "a_only_correct": 145,
+      "b_only_correct": 161,
+      "p_value": 0.39120726374641884
+    }
+  },
+  "note": "Produced with skinfair.evaluation.fairness.compare_gap_bootstrap (n_boot=2000, seed=0) and mcnemar_test on the predictions_fitz.csv files of the four seed-42 runs. Model A = oversampling run, model B = baseline run. diff = gap_a - gap_b; negative means oversampling reduced the light(I-III) - dark(IV-VI) balanced-accuracy gap. Values match REPORT.md section 4.1."
+}

@@ -17,7 +17,7 @@ Each member plans their own work. The intro, conclusion and slides are written t
 ---
 
 ## 1. Afzal Raza — Data pipeline
-- [ ] Download HAM10000 + Fitzpatrick17k, document exact steps in `data/README.md`
+- [x] Download HAM10000 + Fitzpatrick17k, document exact steps in `data/README.md`
 - [x] `datasets.py`: PyTorch `Dataset` classes for both datasets (image, label, `fitzpatrick` / `None`)
 - [x] `splits.py`: **lesion-level** stratified train/val/test split for HAM10000 (same `lesion_id` must never appear in two splits — avoids leakage)
 - [x] Map Fitzpatrick17k labels → the 7 HAM classes (`mel, nv, bcc, akiec, bkl, df, vasc`); drop / document unmapped ones
@@ -30,7 +30,7 @@ Each member plans their own work. The intro, conclusion and slides are written t
 - [x] `models/resnet.py`: ImageNet-pretrained ResNet-50, new 7-class head, freeze/unfreeze option
 - [x] `losses.py`: weighted cross-entropy + focal loss (γ, α configurable)
 - [x] `train.py`: shared training loop (AMP, early stopping, checkpointing, logging) — used by both models
-- [ ] Experiments: CE vs weighted CE vs focal loss; with/without oversampling
+- [~] Experiments: focal loss with/without oversampling done for both models (4 runs, see `results/EXPERIMENTS.md`); CE vs weighted CE not run
 - [x] `explain/gradcam.py`: Grad-CAM on the last conv block
 - **Deliverable:** best ResNet-50 checkpoint + Grad-CAM maps for the test set
 
@@ -47,7 +47,7 @@ Each member plans their own work. The intro, conclusion and slides are written t
 - [x] `evaluation/fairness.py`: metrics **per Fitzpatrick type (I–VI)**, gap (max − min), ratio (min / max), light (I–III) vs dark (IV–VI)
 - [x] Bootstrap 95% confidence intervals + significance test for CNN vs ViT gap
 - [x] `explain/quality.py`: deletion / insertion AUC, and (if masks available) pointing-game / IoU with lesion area
-- [ ] Results tables + plots in `reports/figures/`
+- [x] Results tables + plots in `reports/figures/` (including `reports/figures/oversampling/`)
 - **Deliverable:** `scripts/evaluate.py` that outputs one JSON with all metrics for a checkpoint
 
 ---
@@ -69,6 +69,6 @@ Done (code, tests, and 4 real runs on Colab T4: ResNet-50 and ViT-B/16, focal lo
 
 Still open:
 - Plain CE / weighted-CE comparison (code ready, not run); hyper-parameter search; more seeds (gap differences are not significant with one seed)
-- Team review of `reports/REPORT.md` (intro + conclusion are drafts), slides, final submission
+- Slides (if there is a presentation); the paper has been submitted (`reports/paper/`)
 - Lesion masks for pointing-game / IoU are supported by `explain/quality.py` but not wired into `scripts/explain.py`
 - HAM10000 split depends on the scikit-learn version (Colab test n = 1,441, local 1,431); save the split to CSV to make it exact
