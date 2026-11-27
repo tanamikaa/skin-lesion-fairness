@@ -3,7 +3,7 @@ torchvision>=0.17
 timm>=0.9
 numpy
 pandas
-scikit-learn
+scikit-learn==1.6.1
 scipy
 pillow
 pyyaml
